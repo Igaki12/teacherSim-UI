@@ -9,7 +9,6 @@ import {
   useBreakpointValue
 } from '@chakra-ui/react';
 import { ChatIcon, HamburgerIcon, UnlockIcon } from '@chakra-ui/icons';
-import { useEffect } from 'react';
 
 const ResponsiveOverlays = ({
   scenarioContent,
@@ -23,17 +22,7 @@ const ResponsiveOverlays = ({
   onRequestTrainingEnd,
   canEndTraining
 }) => {
-  const isMobile = useBreakpointValue(
-    { base: true, md: false },
-    { fallback: 'md' }
-  );
-
-  useEffect(() => {
-    if (!isMobile) {
-      onCloseScenario();
-      onCloseChat();
-    }
-  }, [isMobile, onCloseScenario, onCloseChat]);
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   return (
     <>
@@ -54,13 +43,9 @@ const ResponsiveOverlays = ({
             placement="left"
             onClose={onCloseScenario}
             size="full"
-            >
+          >
             <DrawerOverlay />
-            <DrawerContent
-              maxW={{ base: '100%', md: '420px' }}
-              w="100%"
-              mr="auto"
-            >
+            <DrawerContent>
               <DrawerHeader borderBottomWidth="1px">シナリオ</DrawerHeader>
               <DrawerBody>{scenarioContent}</DrawerBody>
             </DrawerContent>
@@ -81,13 +66,9 @@ const ResponsiveOverlays = ({
             placement="right"
             onClose={onCloseChat}
             size="full"
-            >
+          >
             <DrawerOverlay />
-            <DrawerContent
-              maxW={{ base: '100%', md: '420px' }}
-              w="100%"
-              ml="auto"
-            >
+            <DrawerContent>
               <DrawerHeader borderBottomWidth="1px">チャット</DrawerHeader>
               <DrawerBody>{chatContent}</DrawerBody>
             </DrawerContent>
