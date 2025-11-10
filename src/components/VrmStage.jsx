@@ -40,7 +40,7 @@ const visemePresets = [
   { id: 'oh', label: 'O', preset: VRMExpressionPresetName.OH }
 ];
 
-const DEFAULT_MODEL_PATH = '/models/sample.vrm';
+const DEFAULT_MODEL_PATH = `${import.meta.env.BASE_URL}models/sample.vrm`;
 
 const VrmStage = () => {
   const containerRef = useRef(null);
