@@ -26,8 +26,8 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {
-  VRM,
   VRMExpressionPresetName,
+  VRMLoaderPlugin,
   VRMUtils
 } from '@pixiv/three-vrm';
 import useAppStore from '../store/useAppStore.js';
@@ -100,12 +100,16 @@ const VrmStage = () => {
     controlsRef.current = controls;
 
     const loader = new GLTFLoader();
+    loader.register((parser) => new VRMLoaderPlugin(parser, { autoUpdateHumanBones: true }));
     loader.load(
       DEFAULT_MODEL_PATH,
       async (gltf) => {
         try {
-          VRMUtils.removeUnnecessaryJoints(gltf.scene);
-          const vrm = await VRM.from(gltf);
+          const vrm = gltf.userData.vrm;
+          if (!vrm) {
+            throw new Error('VRM データが見つかりませんでした。');
+          }
+          VRMUtils.removeUnnecessaryJoints(vrm.scene);
           vrm.scene.rotation.y = Math.PI; // face camera
           scene.add(vrm.scene);
           vrmRef.current = vrm;
