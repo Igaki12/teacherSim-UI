@@ -22,57 +22,59 @@ const ResponsiveOverlays = ({
   onRequestTrainingEnd,
   canEndTraining
 }) => {
-  const mobileDisplay = useBreakpointValue({ base: 'inline-flex', md: 'none' });
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   return (
     <>
-      <IconButton
-        aria-label="シナリオを開く"
-        icon={<HamburgerIcon />}
-        position="fixed"
-        top={4}
-        left={4}
-        display={mobileDisplay}
-        zIndex="popover"
-        colorScheme="blue"
-        onClick={onOpenScenario}
-      />
-      <Drawer
-        isOpen={isScenarioOpen}
-        placement="left"
-        onClose={onCloseScenario}
-        size="full"
-      >
-        <DrawerOverlay />
-        <DrawerContent>
-          <DrawerHeader borderBottomWidth="1px">シナリオ</DrawerHeader>
-          <DrawerBody>{scenarioContent}</DrawerBody>
-        </DrawerContent>
-      </Drawer>
+      {isMobile && (
+        <>
+          <IconButton
+            aria-label={isScenarioOpen ? 'シナリオを閉じる' : 'シナリオを開く'}
+            icon={<HamburgerIcon />}
+            position="fixed"
+            top={4}
+            left={4}
+            zIndex="popover"
+            colorScheme="blue"
+            onClick={isScenarioOpen ? onCloseScenario : onOpenScenario}
+          />
+          <Drawer
+            isOpen={isScenarioOpen}
+            placement="left"
+            onClose={onCloseScenario}
+            size="full"
+          >
+            <DrawerOverlay />
+            <DrawerContent>
+              <DrawerHeader borderBottomWidth="1px">シナリオ</DrawerHeader>
+              <DrawerBody>{scenarioContent}</DrawerBody>
+            </DrawerContent>
+          </Drawer>
 
-      <IconButton
-        aria-label="チャットを開く"
-        icon={<ChatIcon />}
-        position="fixed"
-        top={4}
-        right={16}
-        display={mobileDisplay}
-        zIndex="popover"
-        colorScheme="pink"
-        onClick={onOpenChat}
-      />
-      <Drawer
-        isOpen={isChatOpen}
-        placement="right"
-        onClose={onCloseChat}
-        size="full"
-      >
-        <DrawerOverlay />
-        <DrawerContent>
-          <DrawerHeader borderBottomWidth="1px">チャット</DrawerHeader>
-          <DrawerBody>{chatContent}</DrawerBody>
-        </DrawerContent>
-      </Drawer>
+          <IconButton
+            aria-label={isChatOpen ? 'チャットを閉じる' : 'チャットを開く'}
+            icon={<ChatIcon />}
+            position="fixed"
+            top={4}
+            right={16}
+            zIndex="popover"
+            colorScheme="pink"
+            onClick={isChatOpen ? onCloseChat : onOpenChat}
+          />
+          <Drawer
+            isOpen={isChatOpen}
+            placement="right"
+            onClose={onCloseChat}
+            size="full"
+          >
+            <DrawerOverlay />
+            <DrawerContent>
+              <DrawerHeader borderBottomWidth="1px">チャット</DrawerHeader>
+              <DrawerBody>{chatContent}</DrawerBody>
+            </DrawerContent>
+          </Drawer>
+        </>
+      )}
 
       <Button
         aria-label="トレーニング終了"

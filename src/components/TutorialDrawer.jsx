@@ -25,14 +25,14 @@ const TutorialDrawer = ({ isVisible }) => {
     <>
       <IconButton
         ref={btnRef}
-        aria-label="チュートリアルを開く"
+        aria-label={isOpen ? 'チュートリアルを閉じる' : 'チュートリアルを開く'}
         icon={<QuestionOutlineIcon />}
         position="fixed"
         top={{ base: 4, md: 6 }}
         right={{ base: 4, md: 6 }}
         zIndex="popover"
         colorScheme="teal"
-        onClick={onOpen}
+        onClick={isOpen ? onClose : onOpen}
       />
       <Drawer
         isOpen={isOpen}
