@@ -17,6 +17,8 @@ agents.md (v0.2, JavaScript版)
 	•	≥ 1024px: 3ペイン固定表示
 	•	768–1023px: 3ペイン（右はやや狭め）
 	•	≤ 767px: 中央フル、左右は Drawer/Modal
+	•	右上の Tutorial ボタンと左下のトレーニング終了ボタンはモバイルでも常に画面上に固定表示。
+	•	トレーニング終了ボタンはデスクトップ/タブレットでも左下に固定表示（画面全幅で共通動線）。
 
 2. 画面/コンポーネント
 
@@ -24,21 +26,21 @@ agents.md (v0.2, JavaScript版)
   /components
     AppHeader.jsx
     AppFooter.jsx
+    AuthDummy.jsx               // 最上部でログインを要求。未ログイン時は他コンポーネント非表示
     SidebarScenario.jsx         // 開始前のみ操作可（開始後はロック）
     VrmStage.jsx                // VRM表示＋擬似リップシンクUI
     ChatPanel.jsx               // 履歴＋入力（音声ボタンはダミー）
-    AuthDummy.jsx               // ログイン/ログアウト/サインアップUIだけ
-    TutorialDrawer.jsx          // 使い方
+    TutorialDrawer.jsx          // 使い方。ログイン後に常時右上ボタンで呼び出し
     ScorePerUtterance.jsx       // 1行ごとの採点結果ダミー表示（複合方式）
     ScoreSummary.jsx            // セッション全体の採点サマリー（ダミー）
-    ProgressDashboard.jsx       // アカウントのスコア推移（ダミーチャート風UI）
-    ResponsiveOverlays.jsx      // スマホのドロワートリガー群（設定/履歴）
+    ProgressDashboard.jsx       // 採点結果の下に表示されるアカウント推移（ダミーチャート風UI）
+    ResponsiveOverlays.jsx      // スマホのドロワートリガー群（設定/履歴/終了ボタン）
   /features
     scenarios.js                // モックデータ（3〜5件）
     chatMock.js                 // 擬似応答
     scoringMock.js              // ベクトル内積＋チェックリスト“風”のダミー結果
   /store
-    useAppStore.js              // { started, currentScenarioId, messages[], scores[] ... }
+    useAppStore.js              // { isAuthenticated, started, trainingEnded, currentScenarioId, messages[], scores[] ... }
   /routes
     Root.jsx
   /theme
@@ -51,7 +53,7 @@ SidebarScenario.jsx
 	•	開始後: 操作ロック（戻れない）。Reset は二重確認ダイアログ（「全履歴が消えます」）の上でのみ実行可。
 
 VrmStage.jsx
-	•	VRM読込：ユーザー提供のサンプル/既定モデル。
+	•	VRM読込：public/models/sample.vrm（`cp LMS_Sample(animation).vrm public/models/sample.vrm` で配置）をデフォルトで利用。
 	•	OrbitControls、表情プリセット、擬似リップシンク（スライダで A/I/U/E/O 形状）。
 	•	FPS/状態インジケータ小表示。
 
@@ -59,17 +61,45 @@ ChatPanel.jsx
 	•	履歴（ユーザー/キャラ、時刻、ScorePerUtteranceを行ごとに下添え）。
 	•	送信→chatMock.reply()→履歴追従スクロール。
 	•	音声入力ボタン（UIのみ、録音中ダミー状態トグル）。
-	•	下部にScoreSummary（今回セッションの暫定スコア）。
+	•	下部にScoreSummary（トレーニング終了後に表示される暫定スコア）。
+
+AuthDummy.jsx
+	•	ページアクセス時に最上部でログイン/サインアップ/ログアウトのダミーフローを提供。
+	•	未ログイン状態では他の UI は表示しない（AuthDummy だけ見える）。
+	•	ログイン完了後にメイン UI を展開し、TutorialDrawer ボタンを表示開始。
 
 ProgressDashboard.jsx
 	•	アカウント別のスコア推移（ライン/スパークライン風のダミー）。
 	•	履歴セッション一覧（日時/シナリオ/総合評価）。
+	•	ScoreSummary の下に配置し、セッション採点の流れで続けて閲覧できるようにする。
+	•	メイン3ペインとは別領域（ページ下部）に表示。
+
+TutorialDrawer.jsx
+	•	画面右上に固定されたアイコンボタンで開閉。
+	•	ログイン後に常時利用可能。
+	•	開いた際は最前面（最大 z-index）でフォーカストラップを適用。
+
+ScoreSummary.jsx
+	•	チャット欄下部に配置し、トレーニング終了後に展開。
+	•	vectorScore / checklistScore / total をまとめて提示。
+	•	確認モーダルで「はい」を押した後にのみ見える。
+
+ResponsiveOverlays.jsx
+	•	モバイル時に以下の固定ボタンを提供:
+		◦	左上: シナリオ Drawer。
+		◦	右上: チャット Drawer。
+		◦	右上最前面: TutorialDrawer アイコンボタン。
+		◦	左下最前面: トレーニング終了ボタン（押下で確認モーダル）。
+	•	トレーニング終了ボタン押下後に ScoreSummary / ProgressDashboard を表示する流れ。
+	•	トレーニング終了ボタンは PC/タブレットでも画面左下に固定表示（共通コンポーネントで制御）。
 
 3. 状態・ルール
 	•	started（boolean）: true以降は SidebarScenario をロック。
 	•	messages[]: { id, role, text, timestamp, score }
 	•	scores[]: { messageId, vectorScore, checklistScore, total }（UIダミー生成）
 	•	resetSession() は確認ダイアログ必須。
+	•	isAuthenticated（boolean）: AuthDummy で true になるまで他 UI を表示しない。
+	•	trainingEnded（boolean）: トレーニング終了ボタン押下で確認モーダル → true の後に採点サマリー/ダッシュボードを解放。
 
 4. アクセシビリティ（ARIA 反映）
 	•	基本: まず意味論的HTML、足りない部分をARIAで補完。
@@ -82,7 +112,7 @@ ProgressDashboard.jsx
 5. エージェント定義（Codex CLI）
 	•	Agent A: レイアウト/Chakra
 	•	出力: App.jsx, AppHeader.jsx, AppFooter.jsx, ResponsiveOverlays.jsx, テーマ。
-	•	ルール: ブレイクポイント実装、スマホは中央最大＋左右Drawer、PCは3ペイン固定。
+	•	ルール: ブレイクポイント実装、スマホは中央最大＋左右Drawer、PCは3ペイン固定。モバイル固定ボタン（シナリオ/チャット/チュートリアル/終了）配置。AuthDummy 前提の表示切替。
 	•	Agent B: 3D/VRM
 	•	出力: VrmStage.jsx。VRMローダ、Orbit、擬似リップシンクUI。
 	•	ルール: 外部TTS/音声解析の差し替え口（setViseme(type)）を用意。
@@ -93,19 +123,24 @@ ProgressDashboard.jsx
 	•	出力: scenarios.js。{ id, title, description, actors[], goals[], rubric[], sampleOpenings[] } を用意。
 	•	Agent E: 採点UI
 	•	出力: ScorePerUtterance.jsx, ScoreSummary.jsx, ProgressDashboard.jsx, scoringMock.js。
-	•	ルール: ベクトル内積“風”数値＋チェックリスト（挨拶/傾聴/確認/説明/締め）を合算したダミーを描画。説明の根拠ラベルも見せる。
+	•	ルール: ベクトル内積“風”数値＋チェックリスト（挨拶/傾聴/確認/説明/締め）を合算したダミーを描画。説明の根拠ラベルも見せる。ScoreSummary の下に ProgressDashboard を配置し、trainingEnded が true のときに表示。
 
 6. 受け入れ基準（更新）
 	•	起動: npm run dev でビルドエラーなし、JSで動作。
+	•	ビルド: npm run build 実行時に /docs 配下へ成果物を書き出し（GitHub Pages 用）。
+	•	デプロイ設定: Vite の base を https://igaki12.github.io/teacherSim-UI/ に合わせて調整（GitHub Pages）。
 	•	レイアウト:
 	•	≤ 767px（スマホ）: 3Dビューが全幅/最大表示。設定/チャットはボタン→ドロワー/モーダルでアクセス。
 	•	768–1023px（タブ縦/小型PC）: 3ペインが破綻なく配置（右ペインは最小幅確保）。
 	•	≥ 1024px（PC/MacBook/Windows）: 左（~280px）/中央（フレキシブル）/右（~420px）が常時表示。
 	•	いずれの幅でもスクロール/折返し/隠れ UI が発生しないこと。
+	•	Auth: ログイン完了までは AuthDummy のみ表示。他 UI は非表示。
 	•	開始ロック: 「開始」後は SidebarScenario の選択系が無効／見た目もロック表示。Reset は二重確認のうえでのみ可能。
+	•	トレーニング終了: 左下固定ボタン押下で確認モーダル。「これで採点してもよろしいですか？」に同意した後に ScoreSummary / ProgressDashboard を表示。
+	•	モバイル固定導線: 左上シナリオ Drawer ボタン、右上チャット Drawer ボタン、右上チュートリアルアイコン、左下終了ボタンが常にアクセス可能。
 	•	3D: Orbit可、擬似リップシンクUIで見た目が変化。
 	•	チャット: 送信→擬似応答→行ごとの採点UIが出る（ベクトル/チェックリスト/合算）。
-	•	ダッシュボード: 直近セッションのスコア推移モックが表示。
+	•	ダッシュボード: 採点サマリーの下に直近セッションのスコア推移モックが表示（trainingEnded 後）。
 	•	A11y: ARIA属性・フォーカストラップ・aria-live等が機能。キーボードのみで主要操作可能。
 	•	デバイス: iPhone/Android/ iPad/PC（Windows/Mac）の想定ビューポートで崩れなし。
 
@@ -118,4 +153,3 @@ API連携や採点計算はダミーで表現します。開始後はシナリ�
 
 8. 将来拡張（メモ）
 	•	OpenAI TTS + 4o / ollama gemma3:4b 統合、Node接続、実採点、永続化。
-
