@@ -1,8 +1,14 @@
 import { Box, Text, useColorModeValue } from '@chakra-ui/react';
+import useAppStore from '../store/useAppStore';
 
 const AppFooter = () => {
   const bg = useColorModeValue('white', 'gray.900');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const { isAuthenticated } = useAppStore();
+
+  if (isAuthenticated) {
+    return null;
+  }
   return (
     <Box
       as="footer"
@@ -13,7 +19,7 @@ const AppFooter = () => {
       py={4}
     >
       <Text fontSize="sm" color="gray.500">
-        © {new Date().getFullYear()} TeacherSim UI Demo
+        © 2025 TeacherSim UI Demo. Kidokaede Igatatsu
       </Text>
     </Box>
   );

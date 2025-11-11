@@ -75,7 +75,7 @@ const SidebarScenario = ({ onClose }) => {
           flex="0 0 40%"
           borderRightWidth={{ base: 0, md: '1px' }}
           borderBottomWidth={{ base: '1px', md: 0 }}
-          maxH={{ base: '200px', md: 'auto' }}
+          maxH={{ base: '35vh', md: 'auto' }}
           overflowY="auto"
         >
           <List spacing={0}>
