@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   Drawer,
   DrawerBody,
@@ -46,9 +47,19 @@ const ResponsiveOverlays = ({
             size="full"
           >
             <DrawerOverlay />
-            <DrawerContent>
+            <DrawerContent display="flex" flexDirection="column">
               <DrawerHeader borderBottomWidth="1px">シナリオ</DrawerHeader>
-              <DrawerBody>{scenarioContent}</DrawerBody>
+              <DrawerBody
+                display="flex"
+                flexDirection="column"
+                overflow="hidden"
+                px={0}
+                pt={0}
+              >
+                <Box flex="1" overflowY="auto" px={4} py={4}>
+                  {scenarioContent}
+                </Box>
+              </DrawerBody>
             </DrawerContent>
           </Drawer>
 
@@ -70,9 +81,19 @@ const ResponsiveOverlays = ({
             size="full"
           >
             <DrawerOverlay />
-            <DrawerContent>
+            <DrawerContent display="flex" flexDirection="column">
               <DrawerHeader borderBottomWidth="1px">チャット</DrawerHeader>
-              <DrawerBody>{chatContent}</DrawerBody>
+              <DrawerBody
+                display="flex"
+                flexDirection="column"
+                overflow="hidden"
+                px={0}
+                pt={0}
+              >
+                <Box flex="1" overflowY="auto" px={4} py={4}>
+                  {chatContent}
+                </Box>
+              </DrawerBody>
             </DrawerContent>
           </Drawer>
         </>
@@ -83,7 +104,10 @@ const ResponsiveOverlays = ({
         leftIcon={<UnlockIcon />}
         colorScheme="green"
         position="fixed"
-        bottom={{ base: 4, md: 6 }}
+        bottom={{
+          base: 'calc(var(--chakra-space-4) + env(safe-area-inset-bottom, 0px))',
+          md: 'var(--chakra-space-6)'
+        }}
         left={{ base: 4, md: 6 }}
         zIndex="popover"
         onClick={onRequestTrainingEnd}

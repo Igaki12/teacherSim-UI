@@ -66,16 +66,25 @@ const SidebarScenario = ({ onClose }) => {
       borderRadius="lg"
       overflow="hidden"
       aria-label="シナリオ選択"
+      height="100%"
+      display="flex"
+      flexDirection="column"
     >
       <Box px={4} py={4} borderBottomWidth="1px">
         <Heading size="sm">シナリオ</Heading>
       </Box>
-      <Stack direction={{ base: 'column' }} spacing={0}>
+      <Stack
+        direction={{ base: 'column' }}
+        spacing={0}
+        flex="1"
+        minH={0}
+        overflow="hidden"
+      >
         <Box
           flex="0 0 40%"
           borderRightWidth={{ base: 0, md: '1px' }}
           borderBottomWidth={{ base: '1px', md: 0 }}
-          maxH={{ base: '35vh', md: 'auto' }}
+          maxH={{ base: '35vh', md: '50%' }}
           overflowY="auto"
         >
           <List spacing={0}>
@@ -104,7 +113,7 @@ const SidebarScenario = ({ onClose }) => {
             })}
           </List>
         </Box>
-        <Box flex="1" px={4} py={4} overflowY="auto">
+        <Box flex="1" px={4} py={4} overflowY="auto" minH={0}>
           {locked && (
             <Alert status="warning" variant="left-accent" mb={3}>
               <AlertIcon />

@@ -61,10 +61,29 @@ const App = () => {
   const mainBg = useColorModeValue('gray.100', 'gray.900');
 
   return (
-    <Box bg={mainBg} minH="100vh" display="flex" flexDirection="column">
+    <Box
+      bg={mainBg}
+      maxH={'100vh'}
+      display="flex"
+      flexDirection="column"
+      overflow="hidden"
+    >
       <AppHeader />
-      <Box as="main" flex="1" py={{ base: 6, md: 10 }}>
-        <Container maxW="7xl">
+      <Box
+        as="main"
+        flex="1"
+        py={{ base: 6, md: 10 }}
+        pb={{ base: 'calc(var(--chakra-space-6) + env(safe-area-inset-bottom, 0px))', md: 10 }}
+        display="flex"
+        overflow="hidden"
+      >
+        <Container
+          maxW="7xl"
+          flex="1"
+          display="flex"
+          flexDirection="column"
+          overflow="hidden"
+        >
           <AuthDummy />
           {!isAuthenticated ? (
             <Alert status="info" borderRadius="md">
@@ -77,30 +96,50 @@ const App = () => {
               </Box>
             </Alert>
           ) : (
-            <>
-              <Grid
-                templateColumns={{
-                  base: '1fr',
-                  md: '260px minmax(0, 1fr) 320px',
-                  lg: '280px minmax(0, 1fr) 420px'
-                }}
-                gap={{ base: 4, md: 6 }}
-                alignItems="start"
-              >
-                <GridItem display={{ base: 'none', md: 'block' }}>
-                  <SidebarScenario />
-                </GridItem>
-                <GridItem>
-                  <VrmStage />
-                </GridItem>
-                <GridItem display={{ base: 'none', md: 'block' }}>
-                  <ChatPanel />
-                </GridItem>
-              </Grid>
-              <Box mt={6}>
-                <ProgressDashboard scores={scores} isVisible={trainingEnded} />
-              </Box>
-            </>
+            <Box flex="1" display="flex" flexDirection="column" overflow="hidden">
+              {!trainingEnded ? (
+                <Grid
+                  templateColumns={{
+                    base: '1fr',
+                    md: '260px minmax(0, 1fr) 320px',
+                    lg: '280px minmax(0, 1fr) 420px'
+                  }}
+                  gap={{ base: 4, md: 6 }}
+                  alignItems="stretch"
+                  height={{ base: '100%', md: '100%' }}
+                  flex="1"
+                  overflow="hidden"
+                >
+                  <GridItem
+                    display={{ base: 'none', md: 'block' }}
+                    height="100%"
+                    overflow="hidden"
+                  >
+                    <Box height="100%" overflowY="auto" pr={1}>
+                      <SidebarScenario />
+                    </Box>
+                  </GridItem>
+                  <GridItem height="100%" overflow="hidden">
+                    <Box height="100%" overflowY="auto">
+                      <VrmStage />
+                    </Box>
+                  </GridItem>
+                  <GridItem
+                    display={{ base: 'none', md: 'block' }}
+                    height="100%"
+                    overflow="hidden"
+                  >
+                    <Box height="100%" overflowY="auto" pr={1}>
+                      <ChatPanel />
+                    </Box>
+                  </GridItem>
+                </Grid>
+              ) : (
+                <Box flex="1" overflowY="auto">
+                  <ProgressDashboard scores={scores} isVisible={trainingEnded} />
+                </Box>
+              )}
+            </Box>
           )}
         </Container>
       </Box>
