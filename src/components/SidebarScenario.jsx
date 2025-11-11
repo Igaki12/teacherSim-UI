@@ -15,7 +15,7 @@ import {
   useDisclosure
 } from '@chakra-ui/react';
 import { useMemo, useRef, useState } from 'react';
-import { CheckCircleIcon, RepeatIcon } from '@chakra-ui/icons';
+import { CheckIcon, RepeatIcon } from '@chakra-ui/icons';
 import {
   AlertDialog,
   AlertDialogBody,
