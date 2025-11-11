@@ -5,17 +5,16 @@ import {
   FormControl,
   FormLabel,
   HStack,
-  IconButton,
+  Input,
   Spinner,
   Stack,
   Text,
-  Textarea,
   Tooltip,
   useColorModeValue,
   useToast
 } from '@chakra-ui/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUpIcon, RepeatIcon } from '@chakra-ui/icons';
+import { ArrowUpIcon } from '@chakra-ui/icons';
 import useAppStore from '../store/useAppStore.js';
 import chatMock from '../features/chatMock.js';
 import scoringMock from '../features/scoringMock.js';
@@ -184,13 +183,12 @@ const ChatPanel = () => {
       <Stack spacing={3} as="form" onSubmit={(event) => event.preventDefault()}>
         <FormControl>
           <FormLabel htmlFor="chat-input">メッセージ入力</FormLabel>
-          <Textarea
+          <Input
             id="chat-input"
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="メッセージを入力してください"
-            rows={4}
             isDisabled={!started}
           />
         </FormControl>
@@ -199,13 +197,14 @@ const ChatPanel = () => {
             label={isRecording ? '録音中（ダミー）' : '音声入力（ダミー）'}
             hasArrow
           >
-            <IconButton
-              aria-label="音声入力を切り替え"
-              icon={<RepeatIcon />}
+            <Button
               colorScheme={isRecording ? 'red' : 'gray'}
               onClick={toggleRecording}
               variant={isRecording ? 'solid' : 'outline'}
-            />
+              aria-pressed={isRecording}
+            >
+              音声入力
+            </Button>
           </Tooltip>
           <Button
             colorScheme="blue"

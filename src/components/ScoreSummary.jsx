@@ -15,6 +15,7 @@ import scoringMock from '../features/scoringMock.js';
 
 const ScoreSummary = ({ scores, isVisible }) => {
   if (!isVisible) {
+    return null;
     return (
       <Alert status="info" borderRadius="md" mt={4} variant="left-accent">
         <AlertIcon />

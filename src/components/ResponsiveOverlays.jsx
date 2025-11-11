@@ -69,14 +69,14 @@ const ResponsiveOverlays = ({
             display={{ base: '', md: !isChatOpen ? 'none' : '' }}
             position="fixed"
             top={4}
-            right={4}
+            left={16}
             zIndex="popover"
             colorScheme="pink"
             onClick={isChatOpen ? onCloseChat : onOpenChat}
           />
           <Drawer
             isOpen={isChatOpen}
-            placement="right"
+            placement="left"
             onClose={onCloseChat}
             size="full"
           >
