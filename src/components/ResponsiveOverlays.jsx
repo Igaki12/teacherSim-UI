@@ -45,7 +45,7 @@ const ResponsiveOverlays = ({
           >
             <DrawerOverlay />
             <DrawerContent display="flex" flexDirection="column">
-              <DrawerHeader borderBottomWidth="1px">シナリオ</DrawerHeader>
+              <DrawerHeader borderBottomWidth="1px" textAlign="center">シナリオ</DrawerHeader>
               <DrawerBody
                 display="flex"
                 flexDirection="column"
@@ -53,7 +53,7 @@ const ResponsiveOverlays = ({
                 px={0}
                 pt={0}
               >
-                <Box flex="1" overflowY="auto" px={4} py={4}>
+                <Box flex="1" overflowY="auto" px={4} py={4} mb={"10vh"}>
                   {scenarioContent}
                 </Box>
               </DrawerBody>
@@ -79,7 +79,7 @@ const ResponsiveOverlays = ({
           >
             <DrawerOverlay />
             <DrawerContent display="flex" flexDirection="column">
-              <DrawerHeader borderBottomWidth="1px">チャット</DrawerHeader>
+              <DrawerHeader borderBottomWidth="1px" textAlign="center">チャット</DrawerHeader>
               <DrawerBody
                 display="flex"
                 flexDirection="column"
@@ -87,7 +87,7 @@ const ResponsiveOverlays = ({
                 px={0}
                 pt={0}
               >
-                <Box flex="1" overflowY="auto" px={4} py={4}>
+                <Box flex="1" overflowY="auto" px={4} py={4} mb={"10vh"}>
                   {chatContent}
                 </Box>
               </DrawerBody>

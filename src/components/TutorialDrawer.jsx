@@ -44,8 +44,7 @@ const TutorialDrawer = ({ isVisible }) => {
         <DrawerOverlay />
         <DrawerContent>
           <DrawerCloseButton />
-          <DrawerHeader display="flex" alignItems="center" gap={3}>
-            <QuestionOutlineIcon />
+          <DrawerHeader textAlign={"center"}>
             チュートリアル
           </DrawerHeader>
           <DrawerBody>
