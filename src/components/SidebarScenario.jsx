@@ -174,7 +174,7 @@ const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
                 {canEndTraining && (
                   <Button
                     colorScheme="green"
-                    leftIcon={<CheckCircleIcon />}
+                    leftIcon={<CheckIcon />}
                     onClick={onRequestTrainingEnd}
                   >
                     トレーニング終了
