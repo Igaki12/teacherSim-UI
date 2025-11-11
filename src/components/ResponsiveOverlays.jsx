@@ -111,7 +111,8 @@ const ResponsiveOverlays = ({
         left={{ base: 4, md: 6 }}
         zIndex="popover"
         onClick={onRequestTrainingEnd}
-        isDisabled={!canEndTraining}
+        // isDisabled={!canEndTraining}
+        display={canEndTraining ? '' : 'none'}
       >
         トレーニング終了
       </Button>
