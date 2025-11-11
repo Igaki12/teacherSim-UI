@@ -116,7 +116,10 @@ const App = () => {
                     overflow="hidden"
                   >
                     <Box height="100%" overflowY="auto" pr={1}>
-                      <SidebarScenario />
+                      <SidebarScenario
+                        onRequestTrainingEnd={endDialog.onOpen}
+                        canEndTraining={canEndTraining}
+                      />
                     </Box>
                   </GridItem>
                   <GridItem height="100%" overflow="hidden">
@@ -149,7 +152,13 @@ const App = () => {
 
       {isAuthenticated && (
         <ResponsiveOverlays
-          scenarioContent={<SidebarScenario onClose={scenarioDrawer.onClose} />}
+          scenarioContent={
+            <SidebarScenario
+              onClose={scenarioDrawer.onClose}
+              onRequestTrainingEnd={endDialog.onOpen}
+              canEndTraining={canEndTraining}
+            />
+          }
           chatContent={<ChatPanel />}
           isScenarioOpen={scenarioDrawer.isOpen}
           onOpenScenario={scenarioDrawer.onOpen}
@@ -157,8 +166,6 @@ const App = () => {
           isChatOpen={chatDrawer.isOpen}
           onOpenChat={chatDrawer.onOpen}
           onCloseChat={chatDrawer.onClose}
-          onRequestTrainingEnd={endDialog.onOpen}
-          canEndTraining={canEndTraining}
         />
       )}
 

@@ -3,7 +3,6 @@ import {
   AlertDescription,
   AlertIcon,
   AlertTitle,
-  Badge,
   Box,
   Button,
   Divider,
@@ -16,6 +15,7 @@ import {
   useDisclosure
 } from '@chakra-ui/react';
 import { useMemo, useRef, useState } from 'react';
+import { CheckCircleIcon, RepeatIcon } from '@chakra-ui/icons';
 import {
   AlertDialog,
   AlertDialogBody,
@@ -27,7 +27,7 @@ import {
 import useAppStore from '../store/useAppStore.js';
 import scenarios, { getScenarioById } from '../features/scenarios.js';
 
-const SidebarScenario = ({ onClose }) => {
+const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
   const { started, startScenario, currentScenarioId, resetSession } =
     useAppStore((state) => ({
       started: state.started,
@@ -171,19 +171,45 @@ const SidebarScenario = ({ onClose }) => {
                     この状況で開始
                   </Button>
                 )}
+                {canEndTraining && (
+                  <Button
+                    colorScheme="green"
+                    leftIcon={<CheckCircleIcon />}
+                    onClick={onRequestTrainingEnd}
+                  >
+                    トレーニング終了
+                  </Button>
+                )}
                 {started && (
                   <Button
                     colorScheme="red"
                     variant="outline"
+                    leftIcon={<RepeatIcon />}
                     onClick={resetDisclosure.onOpen}
                   >
                     リセット
                   </Button>
                 )}
                 {currentScenarioId && (
-                  <Badge alignSelf="flex-start" colorScheme="purple">
-                    現在のシナリオ: {currentScenarioId}
-                  </Badge>
+                  <Box
+                    alignSelf="stretch"
+                    px={3}
+                    py={1}
+                    bg="purple.50"
+                    borderRadius="md"
+                    borderWidth="1px"
+                    borderColor="purple.200"
+                  >
+                    <Text
+                      fontSize="xs"
+                      fontWeight="semibold"
+                      color="purple.700"
+                      noOfLines={1}
+                      title={currentScenarioId}
+                    >
+                      現在のシナリオ: {currentScenarioId}
+                    </Text>
+                  </Box>
                 )}
               </Stack>
             </Stack>

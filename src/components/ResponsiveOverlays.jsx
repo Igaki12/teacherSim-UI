@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   Drawer,
   DrawerBody,
   DrawerContent,
@@ -9,7 +8,7 @@ import {
   IconButton,
   useBreakpointValue
 } from '@chakra-ui/react';
-import { ChatIcon, HamburgerIcon, UnlockIcon } from '@chakra-ui/icons';
+import { ChatIcon, HamburgerIcon } from '@chakra-ui/icons';
 
 const ResponsiveOverlays = ({
   scenarioContent,
@@ -19,9 +18,7 @@ const ResponsiveOverlays = ({
   onCloseScenario,
   isChatOpen,
   onOpenChat,
-  onCloseChat,
-  onRequestTrainingEnd,
-  canEndTraining
+  onCloseChat
 }) => {
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -98,24 +95,6 @@ const ResponsiveOverlays = ({
           </Drawer>
         </>
       )}
-
-      <Button
-        aria-label="トレーニング終了"
-        leftIcon={<UnlockIcon />}
-        colorScheme="green"
-        position="fixed"
-        bottom={{
-          base: 'calc(var(--chakra-space-4) + env(safe-area-inset-bottom, 0px))',
-          md: 'var(--chakra-space-6)'
-        }}
-        left={{ base: 4, md: 6 }}
-        zIndex="popover"
-        onClick={onRequestTrainingEnd}
-        // isDisabled={!canEndTraining}
-        display={canEndTraining ? '' : 'none'}
-      >
-        トレーニング終了
-      </Button>
     </>
   );
 };
