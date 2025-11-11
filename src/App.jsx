@@ -63,7 +63,7 @@ const App = () => {
   return (
     <Box
       bg={mainBg}
-      maxH={'100vh'}
+      h="100vh"
       display="flex"
       flexDirection="column"
       overflow="hidden"
