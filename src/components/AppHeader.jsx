@@ -11,13 +11,20 @@ import { MoonIcon, SunIcon } from '@chakra-ui/icons';
 import useAppStore from '../store/useAppStore.js';
 
 const AppHeader = () => {
-  const { started, currentScenarioId } = useAppStore((state) => ({
-    started: state.started,
-    currentScenarioId: state.currentScenarioId
-  }));
+  const { isAuthenticated, started, currentScenarioId } = useAppStore(
+    (state) => ({
+      isAuthenticated: state.isAuthenticated,
+      started: state.started,
+      currentScenarioId: state.currentScenarioId
+    })
+  );
   const { colorMode, toggleColorMode } = useColorMode();
   const bg = useColorModeValue('white', 'gray.900');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <Box

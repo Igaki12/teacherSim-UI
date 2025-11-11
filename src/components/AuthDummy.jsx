@@ -11,6 +11,7 @@ import {
   FormLabel,
   HStack,
   Input,
+  Spacer,
   Stack,
   Text,
   useColorModeValue
@@ -44,13 +45,13 @@ const AuthDummy = () => {
   const cardBg = useColorModeValue('white', 'gray.800');
 
   return (
-    <Box mb={6} role="region" aria-label="認証ダミーエリア">
+    <Box mb={4} role="region" aria-label="認証ダミーエリア">
       <Card bg={cardBg} shadow="sm" borderWidth="1px">
         <CardBody>
           <Stack spacing={4}>
-            <Text fontSize="lg" fontWeight="bold">
+            {/* <Text fontSize="lg" fontWeight="bold">
               デモ用ログイン
-            </Text>
+            </Text> */}
             {!isAuthenticated ? (
               <form onSubmit={handleLogin}>
                 <Stack spacing={4}>
@@ -72,8 +73,8 @@ const AuthDummy = () => {
                 </Stack>
               </form>
             ) : (
-              <Stack spacing={3}>
-                <Alert status="success" variant="subtle">
+              <Stack spacing={1}>
+                {/* <Alert status="success" variant="subtle">
                   <AlertIcon />
                   <Stack spacing={1}>
                     <AlertTitle>ログイン済み</AlertTitle>
@@ -81,19 +82,25 @@ const AuthDummy = () => {
                       {userName} としてシミュレーションを開始できます。
                     </AlertDescription>
                   </Stack>
-                </Alert>
+                </Alert> */}
                 <HStack>
+                  {status && (
+                    <Text fontSize="sm" color="blue.500">
+                      {status}
+                    </Text>
+                  )}
+                  <Spacer />
                   <Button onClick={handleLogout}>ログアウト</Button>
                 </HStack>
               </Stack>
             )}
-            <Box aria-live="polite" minH="1.5rem">
+            {/* <Box aria-live="polite" minH="1.5rem">
               {status && (
                 <Text fontSize="sm" color="blue.500">
                   {status}
                 </Text>
               )}
-            </Box>
+            </Box> */}
           </Stack>
         </CardBody>
       </Card>

@@ -109,7 +109,7 @@ const ChatPanel = () => {
   const bubbleBgAssistant = useColorModeValue('gray.100', 'gray.700');
 
   return (
-    <Stack spacing={4} height="100%" role="region" aria-label="チャットパネル">
+    <Stack spacing={4} height="100%" role="region" aria-label="チャットパネル" bg={useColorModeValue('white', 'gray.900')} p={4}>
       <Box
         flex="1"
         borderWidth="1px"

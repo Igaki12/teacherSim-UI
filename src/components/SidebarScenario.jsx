@@ -70,7 +70,7 @@ const SidebarScenario = ({ onClose }) => {
       <Box px={4} py={4} borderBottomWidth="1px">
         <Heading size="sm">シナリオ</Heading>
       </Box>
-      <Stack direction={{ base: 'column', md: 'row' }} spacing={0}>
+      <Stack direction={{ base: 'column' }} spacing={0}>
         <Box
           flex="0 0 40%"
           borderRightWidth={{ base: 0, md: '1px' }}

@@ -23,6 +23,23 @@ const ResponsiveOverlays = ({
   canEndTraining
 }) => {
   const isMobile = useBreakpointValue({ base: true, md: false });
+  if (!isMobile) {
+    return (
+      <Button
+        aria-label="トレーニング終了"
+        leftIcon={<UnlockIcon />}
+        colorScheme="green"
+        position="fixed"
+        bottom={{ base: 4, md: 6 }}
+        left={{ base: 4, md: 6 }}
+        zIndex="popover"
+        onClick={onRequestTrainingEnd}
+        isDisabled={!canEndTraining}
+      >
+        トレーニング終了
+      </Button>
+    )
+  }
 
   return (
     <>
