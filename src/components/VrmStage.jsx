@@ -46,6 +46,7 @@ const VrmStage = () => {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
   const vrmRef = useRef(null);
+  const lastLoggedAARef = useRef(null);
   const controlsRef = useRef(null);
   const visemeValuesRef = useRef(
     visemePresets.reduce((acc, preset) => {
@@ -56,9 +57,10 @@ const VrmStage = () => {
   const [status, setStatus] = useState('モデル読み込み中…');
   const [fps, setFps] = useState(0);
   const fpsSampleRef = useRef({ last: performance.now(), count: 0 });
-  const { currentViseme, setViseme } = useAppStore((state) => ({
+  const { currentViseme, setViseme, visemeWeights } = useAppStore((state) => ({
     currentViseme: state.currentViseme,
-    setViseme: state.setViseme
+    setViseme: state.setViseme,
+    visemeWeights: state.visemeWeights
   }));
   const sliderBg = useColorModeValue('white', 'gray.800');
 
@@ -144,6 +146,15 @@ const VrmStage = () => {
               expression.setValue(preset, value);
             }
           });
+          const aaWeight = expression.getValue(VRMExpressionPresetName.AA);
+          if (aaWeight !== null) {
+            const previous = lastLoggedAARef.current;
+            if (previous === null || Math.abs(previous - aaWeight) >= 0.01) {
+              const roundedAA = Math.round(aaWeight * 100) / 100;
+              console.log('[VRM] expression.getValue("aa"):', roundedAA);
+              lastLoggedAARef.current = aaWeight;
+            }
+          }
         }
       }
 
@@ -190,12 +201,40 @@ const VrmStage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const vrm = vrmRef.current;
+    const expression = vrm?.expressionManager;
+    if (!visemeWeights || (!expression && Object.keys(visemeWeights).length === 0)) {
+      return;
+    }
+
+    let updatedValues = false;
+    const nextValues = { ...visemeValuesRef.current };
+    visemePresets.forEach((preset) => {
+      if (typeof visemeWeights[preset.id] === 'number') {
+        const weight = visemeWeights[preset.id];
+        nextValues[preset.id] = weight;
+        if (expression) {
+          expression.setValue(preset.preset, weight);
+        }
+        updatedValues = true;
+      }
+    });
+
+    if (updatedValues) {
+      visemeValuesRef.current = nextValues;
+      if (expression && typeof expression.update === 'function') {
+        expression.update();
+      }
+    }
+  }, [visemeWeights]);
+
   const handleVisemeChange = (presetId, value) => {
     visemeValuesRef.current = {
       ...visemeValuesRef.current,
       [presetId]: value
     };
-    setViseme(presetId);
+    setViseme(presetId, value);
   };
 
   return (

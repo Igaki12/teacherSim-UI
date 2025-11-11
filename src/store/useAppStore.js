@@ -5,7 +5,8 @@ const initialSessionState = {
   trainingEnded: false,
   currentScenarioId: null,
   messages: [],
-  scores: []
+  scores: [],
+  visemeWeights: {}
 };
 
 const useAppStore = create((set, get) => ({
@@ -32,7 +33,8 @@ const useAppStore = create((set, get) => ({
       trainingEnded: false,
       currentScenarioId: scenarioId,
       messages: [],
-      scores: []
+      scores: [],
+      visemeWeights: {}
     }),
   resetSession: () =>
     set({
@@ -40,7 +42,8 @@ const useAppStore = create((set, get) => ({
       trainingEnded: false,
       currentScenarioId: null,
       messages: [],
-      scores: []
+      scores: [],
+      visemeWeights: {}
     }),
   addMessage: (message) =>
     set({
@@ -54,10 +57,14 @@ const useAppStore = create((set, get) => ({
     set({
       trainingEnded: true
     }),
-  setViseme: (viseme) =>
-    set({
-      currentViseme: viseme
-    })
+  setViseme: (viseme, weight = 1) =>
+    set((state) => ({
+      currentViseme: viseme,
+      visemeWeights: {
+        ...state.visemeWeights,
+        [viseme]: weight
+      }
+    }))
 }));
 
 export default useAppStore;
