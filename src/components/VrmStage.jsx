@@ -1,23 +1,11 @@
-import {
-  Badge,
-  Box,
-  Flex,
-  Heading,
-  SimpleGrid,
-  Slider,
-  SliderFilledTrack,
-  SliderThumb,
-  SliderTrack,
-  Stack,
-  Text,
-  useColorModeValue
-} from '@chakra-ui/react';
-import { useEffect, useRef, useState } from 'react';
+import { Badge, Box, Button, Heading, Stack, Text } from '@chakra-ui/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AmbientLight,
   Clock,
   Color,
   DirectionalLight,
+  MathUtils,
   PerspectiveCamera,
   Scene,
   Vector3,
@@ -25,20 +13,9 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import {
-  VRMExpressionPresetName,
-  VRMLoaderPlugin,
-  VRMUtils
-} from '@pixiv/three-vrm';
+import { VRMHumanBoneName, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import useAppStore from '../store/useAppStore.js';
-
-const visemePresets = [
-  { id: 'aa', label: 'A', preset: VRMExpressionPresetName.AA },
-  { id: 'ih', label: 'I', preset: VRMExpressionPresetName.IH },
-  { id: 'ou', label: 'U', preset: VRMExpressionPresetName.OU },
-  { id: 'ee', label: 'E', preset: VRMExpressionPresetName.EE },
-  { id: 'oh', label: 'O', preset: VRMExpressionPresetName.OH }
-];
+import ChatComposer from './ChatComposer.jsx';
 
 const DEFAULT_MODEL_PATH = `${import.meta.env.BASE_URL}models/sample.vrm`;
 
@@ -46,23 +23,14 @@ const VrmStage = () => {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
   const vrmRef = useRef(null);
-  const lastLoggedAARef = useRef(null);
+  const cameraRef = useRef(null);
   const controlsRef = useRef(null);
-  const visemeValuesRef = useRef(
-    visemePresets.reduce((acc, preset) => {
-      acc[preset.id] = 0;
-      return acc;
-    }, {})
-  );
+  const poseAnimationIdRef = useRef(null);
   const [status, setStatus] = useState('モデル読み込み中…');
   const [fps, setFps] = useState(0);
+  const [modelReady, setModelReady] = useState(false);
   const fpsSampleRef = useRef({ last: performance.now(), count: 0 });
-  const { currentViseme, setViseme, visemeWeights } = useAppStore((state) => ({
-    currentViseme: state.currentViseme,
-    setViseme: state.setViseme,
-    visemeWeights: state.visemeWeights
-  }));
-  const sliderBg = useColorModeValue('white', 'gray.800');
+  const started = useAppStore((state) => state.started);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -78,6 +46,7 @@ const VrmStage = () => {
       50
     );
     camera.position.set(0, 1.3, 2.4);
+    cameraRef.current = camera;
 
     const renderer = new WebGLRenderer({
       antialias: true,
@@ -112,18 +81,21 @@ const VrmStage = () => {
             throw new Error('VRM データが見つかりませんでした。');
           }
           VRMUtils.removeUnnecessaryJoints(vrm.scene);
-          vrm.scene.rotation.y = Math.PI; // face camera
+          vrm.scene.rotation.y = Math.PI;
           scene.add(vrm.scene);
           vrmRef.current = vrm;
+          setModelReady(true);
           setStatus('モデル準備完了');
         } catch (error) {
           console.error(error);
+          setModelReady(false);
           setStatus('VRM の読み込みに失敗しました。');
         }
       },
       undefined,
       (error) => {
         console.error(error);
+        setModelReady(false);
         setStatus('VRM の読み込みに失敗しました。');
       }
     );
@@ -138,24 +110,6 @@ const VrmStage = () => {
       const vrm = vrmRef.current;
       if (vrm) {
         vrm.update(delta);
-        const expression = vrm.expressionManager;
-        if (expression) {
-          Object.entries(visemeValuesRef.current).forEach(([key, value]) => {
-            const preset = visemePresets.find((item) => item.id === key)?.preset;
-            if (preset) {
-              expression.setValue(preset, value);
-            }
-          });
-          const aaWeight = expression.getValue(VRMExpressionPresetName.AA);
-          if (aaWeight !== null) {
-            const previous = lastLoggedAARef.current;
-            if (previous === null || Math.abs(previous - aaWeight) >= 0.01) {
-              const roundedAA = Math.round(aaWeight * 100) / 100;
-              console.log('[VRM] expression.getValue("aa"):', roundedAA);
-              lastLoggedAARef.current = aaWeight;
-            }
-          }
-        }
       }
 
       renderer.render(scene, camera);
@@ -198,51 +152,133 @@ const VrmStage = () => {
       });
       vrmRef.current = null;
       renderer.domElement.remove();
+      cameraRef.current = null;
+      controlsRef.current = null;
+      if (poseAnimationIdRef.current !== null) {
+        cancelAnimationFrame(poseAnimationIdRef.current);
+      }
+      poseAnimationIdRef.current = null;
     };
   }, []);
 
-  useEffect(() => {
+  const applyFrontPose = useCallback(() => {
     const vrm = vrmRef.current;
-    const expression = vrm?.expressionManager;
-    if (!visemeWeights || (!expression && Object.keys(visemeWeights).length === 0)) {
+    if (!vrm) {
       return;
     }
 
-    let updatedValues = false;
-    const nextValues = { ...visemeValuesRef.current };
-    visemePresets.forEach((preset) => {
-      if (typeof visemeWeights[preset.id] === 'number') {
-        const weight = visemeWeights[preset.id];
-        nextValues[preset.id] = weight;
-        if (expression) {
-          expression.setValue(preset.preset, weight);
-        }
-        updatedValues = true;
-      }
-    });
-
-    if (updatedValues) {
-      visemeValuesRef.current = nextValues;
-      if (expression && typeof expression.update === 'function') {
-        expression.update();
-      }
+    if (poseAnimationIdRef.current !== null) {
+      cancelAnimationFrame(poseAnimationIdRef.current);
+      poseAnimationIdRef.current = null;
     }
-  }, [visemeWeights]);
 
-  const handleVisemeChange = (presetId, value) => {
-    visemeValuesRef.current = {
-      ...visemeValuesRef.current,
-      [presetId]: value
-    };
-    setViseme(presetId, value);
-  };
+    const humanoid = vrm.humanoid;
+    const controls = controlsRef.current;
+    const camera = cameraRef.current;
+
+    vrm.scene.rotation.y = 0;
+
+    if (humanoid) {
+      const setBoneEuler = (boneName, { x = 0, y = 0, z = 0 }) => {
+        const bone = humanoid.getNormalizedBoneNode(boneName);
+        if (bone) {
+          bone.rotation.set(x, y, z);
+        }
+      };
+
+      setBoneEuler(VRMHumanBoneName.LeftUpperArm, {
+        x: MathUtils.degToRad(-10),
+        y: MathUtils.degToRad(12),
+        z: MathUtils.degToRad(-75)
+      });
+      setBoneEuler(VRMHumanBoneName.LeftLowerArm, {
+        x: MathUtils.degToRad(-5),
+        y: MathUtils.degToRad(8),
+        z: MathUtils.degToRad(-5)
+      });
+      setBoneEuler(VRMHumanBoneName.RightUpperArm, {
+        x: MathUtils.degToRad(-10),
+        y: MathUtils.degToRad(-12),
+        z: MathUtils.degToRad(75)
+      });
+      setBoneEuler(VRMHumanBoneName.RightLowerArm, {
+        x: MathUtils.degToRad(-5),
+        y: MathUtils.degToRad(-8),
+        z: MathUtils.degToRad(5)
+      });
+
+      const neck = humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
+      if (neck) {
+        neck.rotation.set(MathUtils.degToRad(-5), 0, 0);
+      }
+
+      humanoid.update();
+    }
+
+    const targetCameraPos = new Vector3(0, 1.45, 1.1);
+    const targetControlTarget = new Vector3(0, 1.45, 0);
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+    if (camera) {
+      const startCameraPos = camera.position.clone();
+      const startTime = performance.now();
+      const duration = 850;
+      const startControlTarget = controls ? controls.target.clone() : null;
+      const tempTarget = new Vector3();
+      setStatus('正面ポジションへ移動中…');
+
+      const animate = (now) => {
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        const eased = easeOutCubic(t);
+
+        camera.position.lerpVectors(startCameraPos, targetCameraPos, eased);
+
+        if (controls) {
+          if (startControlTarget) {
+            tempTarget.copy(startControlTarget).lerp(targetControlTarget, eased);
+            controls.target.copy(tempTarget);
+          } else {
+            controls.target.copy(targetControlTarget);
+          }
+          controls.update();
+        }
+
+        if (t < 1) {
+          poseAnimationIdRef.current = requestAnimationFrame(animate);
+        } else {
+          camera.position.copy(targetCameraPos);
+          if (controls) {
+            controls.target.copy(targetControlTarget);
+            controls.update();
+          }
+          poseAnimationIdRef.current = null;
+          setStatus('正面ポジションを適用しました');
+        }
+      };
+
+      poseAnimationIdRef.current = requestAnimationFrame(animate);
+    } else {
+      if (controls) {
+        controls.target.copy(targetControlTarget);
+        controls.update();
+      }
+      setStatus('正面ポジションを適用しました');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (started && modelReady) {
+      applyFrontPose();
+    }
+  }, [started, modelReady, applyFrontPose]);
 
   return (
     <Stack spacing={4} height="100%" role="region" aria-label="VRM ステージ">
       <Box position="relative" borderRadius="lg" overflow="hidden" flex="1">
         <Box
           ref={containerRef}
-          height={{ base: '320px', md: '100%' }}
+          height="100%"
           minH="320px"
           aria-label="3D モデルビューア"
         />
@@ -254,44 +290,27 @@ const VrmStage = () => {
         </Badge>
       </Box>
       <Stack spacing={3}>
-        <Heading size="sm">擬似リップシンク</Heading>
-        <Text fontSize="xs" color="gray.500">
-          スライダーで口形を変更できます。外部解析の値は setViseme(type) で差し替え可能です。
-        </Text>
-        <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3}>
-          {visemePresets.map((preset) => (
-            <Box
-              key={preset.id}
-              p={3}
-              borderWidth="1px"
-              borderRadius="md"
-              bg={sliderBg}
-            >
-              <Flex justify="space-between" align="center" mb={2}>
-                <Text fontSize="sm" fontWeight="medium">
-                  {preset.label}
-                </Text>
-                {currentViseme === preset.id && (
-                  <Badge colorScheme="green">live</Badge>
-                )}
-              </Flex>
-              <Slider
-                aria-label={`${preset.label} 口形`}
-                min={0}
-                max={1}
-                step={0.05}
-                defaultValue={0}
-                onChange={(value) => handleVisemeChange(preset.id, value)}
-              >
-                <SliderTrack>
-                  <SliderFilledTrack />
-                </SliderTrack>
-                <SliderThumb />
-              </Slider>
-            </Box>
-          ))}
-        </SimpleGrid>
+        <Button
+          size="sm"
+          colorScheme="blue"
+          onClick={applyFrontPose}
+          isDisabled={!modelReady}
+          aria-label="モデルを正面ポジションに調整する「話を聞く」"
+          alignSelf={{ base: 'stretch', sm: 'flex-start' }}
+        >
+         話を聞く
+        </Button>
+        {!modelReady && (
+          <Text fontSize="xs" color="gray.400">
+            モデルの読み込みが完了すると操作できます。
+          </Text>
+        )}
       </Stack>
+      <ChatComposer
+        inputId="vrm-chat-input"
+        display={{ base: 'flex', md: 'none' }}
+        w="100%"
+      />
     </Stack>
   );
 };

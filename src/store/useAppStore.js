@@ -6,7 +6,10 @@ const initialSessionState = {
   currentScenarioId: null,
   messages: [],
   scores: [],
-  visemeWeights: {}
+  visemeWeights: {},
+  chatInput: '',
+  isChatSending: false,
+  isChatRecording: false
 };
 
 const useAppStore = create((set, get) => ({
@@ -29,21 +32,14 @@ const useAppStore = create((set, get) => ({
     }),
   startScenario: (scenarioId) =>
     set({
+      ...initialSessionState,
       started: true,
       trainingEnded: false,
-      currentScenarioId: scenarioId,
-      messages: [],
-      scores: [],
-      visemeWeights: {}
+      currentScenarioId: scenarioId
     }),
   resetSession: () =>
     set({
-      started: false,
-      trainingEnded: false,
-      currentScenarioId: null,
-      messages: [],
-      scores: [],
-      visemeWeights: {}
+      ...initialSessionState
     }),
   addMessage: (message) =>
     set({
@@ -64,6 +60,18 @@ const useAppStore = create((set, get) => ({
         ...state.visemeWeights,
         [viseme]: weight
       }
+    })),
+  setChatInput: (value) =>
+    set({
+      chatInput: value
+    }),
+  setChatSending: (value) =>
+    set({
+      isChatSending: value
+    }),
+  toggleChatRecording: () =>
+    set((state) => ({
+      isChatRecording: !state.isChatRecording
     }))
 }));
 

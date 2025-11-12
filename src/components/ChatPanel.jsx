@@ -1,48 +1,26 @@
 import {
   Badge,
   Box,
-  Button,
-  FormControl,
-  FormLabel,
   HStack,
-  Input,
   Spinner,
   Stack,
   Text,
-  Tooltip,
-  useColorModeValue,
-  useToast
+  useColorModeValue
 } from '@chakra-ui/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUpIcon } from '@chakra-ui/icons';
+import { useEffect, useMemo, useRef } from 'react';
 import useAppStore from '../store/useAppStore.js';
-import chatMock from '../features/chatMock.js';
-import scoringMock from '../features/scoringMock.js';
-import ScorePerUtterance from './ScorePerUtterance.jsx';
 import ScoreSummary from './ScoreSummary.jsx';
+import ChatComposer from './ChatComposer.jsx';
 
 const ChatPanel = () => {
-  const {
-    started,
-    trainingEnded,
-    currentScenarioId,
-    messages,
-    scores,
-    addMessage,
-    addScore
-  } = useAppStore((state) => ({
-    started: state.started,
-    trainingEnded: state.trainingEnded,
-    currentScenarioId: state.currentScenarioId,
-    messages: state.messages,
-    scores: state.scores,
-    addMessage: state.addMessage,
-    addScore: state.addScore
-  }));
-  const [input, setInput] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const toast = useToast();
+  const { trainingEnded, messages, scores, isChatSending } = useAppStore(
+    (state) => ({
+      trainingEnded: state.trainingEnded,
+      messages: state.messages,
+      scores: state.scores,
+      isChatSending: state.isChatSending
+    })
+  );
   const logRef = useRef();
 
   const scoreMap = useMemo(() => {
@@ -57,51 +35,6 @@ const ChatPanel = () => {
     if (!logRef.current) return;
     logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages.length]);
-
-  const sendMessage = async () => {
-    if (!started) {
-      toast({
-        status: 'warning',
-        title: 'シナリオを開始してください',
-        description: 'シナリオを開始するとチャットが利用できます。'
-      });
-      return;
-    }
-    const text = input.trim();
-    if (!text) return;
-
-    const userMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      text,
-      timestamp: new Date().toISOString()
-    };
-    addMessage(userMessage);
-    addScore(scoringMock.score(userMessage));
-    setInput('');
-    setIsSending(true);
-    try {
-      const reply = await chatMock.reply({
-        text,
-        scenarioId: currentScenarioId
-      });
-      addMessage(reply);
-      addScore(scoringMock.score(reply));
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage();
-    }
-  };
-
-  const toggleRecording = () => {
-    setIsRecording((prev) => !prev);
-  };
 
   const bubbleBgUser = useColorModeValue('blue.500', 'blue.300');
   const bubbleColorUser = useColorModeValue('white', 'gray.900');
@@ -165,12 +98,12 @@ const ChatPanel = () => {
                         {new Date(message.timestamp).toLocaleTimeString()}
                       </Badge>
                     </Box>
-                    <ScorePerUtterance score={scoreMap.get(message.id)} />
+                    {/* <ScorePerUtterance score={scoreMap.get(message.id)} /> */}
                   </Stack>
                 </Box>
               );
             })}
-            {isSending && (
+            {isChatSending && (
               <HStack spacing={2} color="gray.500">
                 <Spinner size="sm" />
                 <Text fontSize="sm">応答を生成しています…</Text>
@@ -180,43 +113,7 @@ const ChatPanel = () => {
         </Box>
       </Box>
 
-      <Stack spacing={3} as="form" onSubmit={(event) => event.preventDefault()}>
-        <FormControl>
-          <FormLabel htmlFor="chat-input">メッセージ入力</FormLabel>
-          <Input
-            id="chat-input"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="メッセージを入力してください"
-            isDisabled={!started}
-          />
-        </FormControl>
-        <HStack justify="space-between">
-          <Tooltip
-            label={isRecording ? '録音中（ダミー）' : '音声入力（ダミー）'}
-            hasArrow
-          >
-            <Button
-              colorScheme={isRecording ? 'red' : 'gray'}
-              onClick={toggleRecording}
-              variant={isRecording ? 'solid' : 'outline'}
-              aria-pressed={isRecording}
-            >
-              音声入力
-            </Button>
-          </Tooltip>
-          <Button
-            colorScheme="blue"
-            rightIcon={<ArrowUpIcon />}
-            onClick={sendMessage}
-            isLoading={isSending}
-            isDisabled={!started}
-          >
-            送信
-          </Button>
-        </HStack>
-      </Stack>
+      <ChatComposer />
 
       <ScoreSummary scores={scores} isVisible={trainingEnded} />
     </Stack>
