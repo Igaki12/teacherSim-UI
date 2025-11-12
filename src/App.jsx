@@ -161,10 +161,10 @@ const App = () => {
           }
           chatContent={<ChatPanel />}
           isScenarioOpen={scenarioDrawer.isOpen}
-          onOpenScenario={scenarioDrawer.onOpen}
+          onOpenScenario={() => { scenarioDrawer.onOpen(); chatDrawer.onClose(); }}
           onCloseScenario={scenarioDrawer.onClose}
           isChatOpen={chatDrawer.isOpen}
-          onOpenChat={chatDrawer.onOpen}
+          onOpenChat={() => { chatDrawer.onOpen(); scenarioDrawer.onClose(); }}
           onCloseChat={chatDrawer.onClose}
         />
       )}

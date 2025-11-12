@@ -289,27 +289,30 @@ const VrmStage = () => {
           FPS: {fps}
         </Badge>
       </Box>
-      <Stack spacing={3}>
+      <Stack spacing={0}>
+        {!modelReady && (
+          <Text fontSize="xs" color="gray.400">
+            モデルの読み込みが完了すると操作できます。
+          </Text>
+        )}
         <Button
           size="sm"
           colorScheme="blue"
           onClick={applyFrontPose}
           isDisabled={!modelReady}
           aria-label="モデルを正面ポジションに調整する「話を聞く」"
-          alignSelf={{ base: 'stretch', sm: 'flex-start' }}
+          alignSelf="stretch"
+          mt={{ base: 0, md: 4 }}
+          mb={{ base: 0, md: 4 }}
         >
-         話を聞く
+          話を聞く
         </Button>
-        {!modelReady && (
-          <Text fontSize="xs" color="gray.400">
-            モデルの読み込みが完了すると操作できます。
-          </Text>
-        )}
       </Stack>
       <ChatComposer
         inputId="vrm-chat-input"
         display={{ base: 'flex', md: 'none' }}
         w="100%"
+        mb={{ base: '10vh', md: 0 }}
       />
     </Stack>
   );

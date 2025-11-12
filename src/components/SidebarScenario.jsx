@@ -26,6 +26,7 @@ import {
 } from '@chakra-ui/react';
 import useAppStore from '../store/useAppStore.js';
 import scenarios, { getScenarioById } from '../features/scenarios.js';
+import { HorizontalBlurShader } from 'three/examples/jsm/Addons.js';
 
 const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
   const { started, startScenario, currentScenarioId, resetSession } =
@@ -82,8 +83,9 @@ const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
       >
         <Box
           flex="0 0 40%"
-          borderRightWidth="1px"
-          borderBottomWidth="1px"
+          borderRightWidth="0px"
+          borderWidth="3px"
+          borderColor={useColorModeValue('blue.100', 'blue.700')}
           maxH={{ base: '35vh', md: '50%' }}
           overflowY="auto"
           display={started ? 'none' : 'block'}
