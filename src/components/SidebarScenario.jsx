@@ -82,10 +82,11 @@ const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
       >
         <Box
           flex="0 0 40%"
-          borderRightWidth={{ base: 0, md: '1px' }}
-          borderBottomWidth={{ base: '1px', md: 0 }}
+          borderRightWidth="1px"
+          borderBottomWidth="1px"
           maxH={{ base: '35vh', md: '50%' }}
           overflowY="auto"
+          display={started ? 'none' : 'block'}
         >
           <List spacing={0}>
             {scenarios.map((scenario) => {
