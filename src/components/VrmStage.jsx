@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Heading, Stack, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Stack, Text } from '@chakra-ui/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AmbientLight,
@@ -26,9 +26,15 @@ const VrmStage = () => {
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
   const poseAnimationIdRef = useRef(null);
+  const speechMotionIdRef = useRef(null);
+  const speechMotionOriginalPoseRef = useRef(null);
+  const speechMotionStartTimeRef = useRef(0);
+  const speechMotionBlinkRef = useRef({ lastBlink: 0, blinkStart: 0, blinking: false });
+  const speechMotionActiveRef = useRef(false);
   const [status, setStatus] = useState('モデル読み込み中…');
   const [fps, setFps] = useState(0);
   const [modelReady, setModelReady] = useState(false);
+  const [isSpeechMotionActive, setIsSpeechMotionActive] = useState(false);
   const fpsSampleRef = useRef({ last: performance.now(), count: 0 });
   const started = useAppStore((state) => state.started);
 
@@ -158,14 +164,227 @@ const VrmStage = () => {
         cancelAnimationFrame(poseAnimationIdRef.current);
       }
       poseAnimationIdRef.current = null;
+      if (speechMotionIdRef.current !== null) {
+        cancelAnimationFrame(speechMotionIdRef.current);
+      }
+      speechMotionIdRef.current = null;
+      speechMotionActiveRef.current = false;
+      if (vrmRef.current?.humanoid && speechMotionOriginalPoseRef.current) {
+        const humanoid = vrmRef.current.humanoid;
+        Object.entries(speechMotionOriginalPoseRef.current).forEach(([boneName, pose]) => {
+          const bone = humanoid.getNormalizedBoneNode(boneName);
+          if (bone && pose?.rotation) {
+            bone.rotation.copy(pose.rotation);
+          }
+        });
+        humanoid.update();
+      }
+      if (vrmRef.current?.expressionManager) {
+        vrmRef.current.expressionManager.setValue('blink', 0);
+        vrmRef.current.expressionManager.update();
+      }
+      speechMotionOriginalPoseRef.current = null;
+      speechMotionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
+      speechMotionStartTimeRef.current = 0;
     };
   }, []);
+
+  const stopSpeechMotion = useCallback(
+    (options = {}) => {
+      const vrm = vrmRef.current;
+      if (!vrm) {
+        speechMotionActiveRef.current = false;
+        speechMotionIdRef.current = null;
+        return;
+      }
+
+      if (speechMotionIdRef.current !== null) {
+        cancelAnimationFrame(speechMotionIdRef.current);
+        speechMotionIdRef.current = null;
+      }
+
+      const humanoid = vrm.humanoid;
+      if (humanoid && speechMotionOriginalPoseRef.current) {
+        Object.entries(speechMotionOriginalPoseRef.current).forEach(([boneName, pose]) => {
+          const bone = humanoid.getNormalizedBoneNode(boneName);
+          if (bone && pose?.rotation) {
+            bone.rotation.copy(pose.rotation);
+          }
+        });
+        humanoid.update();
+      }
+
+      if (vrm.expressionManager) {
+        vrm.expressionManager.setValue('blink', 0);
+        vrm.expressionManager.update();
+      }
+
+      speechMotionOriginalPoseRef.current = null;
+      speechMotionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
+      speechMotionStartTimeRef.current = 0;
+      speechMotionActiveRef.current = false;
+
+      if (isSpeechMotionActive) {
+        setIsSpeechMotionActive(false);
+      }
+      if (!options.silent) {
+        setStatus('モーションを停止しました');
+      }
+    },
+    [isSpeechMotionActive]
+  );
+
+  const startSpeechMotion = useCallback(() => {
+    const vrm = vrmRef.current;
+    if (!vrm || !vrm.humanoid) {
+      return;
+    }
+
+    stopSpeechMotion({ silent: true });
+
+    const humanoid = vrm.humanoid;
+    const boneNames = [
+      VRMHumanBoneName.LeftUpperArm,
+      VRMHumanBoneName.LeftLowerArm,
+      VRMHumanBoneName.RightUpperArm,
+      VRMHumanBoneName.RightLowerArm,
+      VRMHumanBoneName.Chest,
+      VRMHumanBoneName.Spine,
+      VRMHumanBoneName.UpperChest,
+      VRMHumanBoneName.Neck
+    ];
+
+    const originalPose = {};
+    const boneMap = {};
+    boneNames.forEach((name) => {
+      const bone = humanoid.getNormalizedBoneNode(name);
+      if (bone) {
+        originalPose[name] = { rotation: bone.rotation.clone() };
+        boneMap[name] = bone;
+      }
+    });
+
+    speechMotionOriginalPoseRef.current = originalPose;
+    speechMotionStartTimeRef.current = performance.now();
+    speechMotionBlinkRef.current = {
+      lastBlink: speechMotionStartTimeRef.current,
+      blinkStart: 0,
+      blinking: false
+    };
+    speechMotionActiveRef.current = true;
+    setIsSpeechMotionActive(true);
+    setStatus('喋るモーション1 再生中');
+
+    const setRotation = (boneName, { x = 0, y = 0, z = 0 }) => {
+      const target = boneMap[boneName];
+      if (target) {
+        target.rotation.set(x, y, z);
+      }
+    };
+
+    const animationLoop = (now) => {
+      if (!speechMotionActiveRef.current) {
+        return;
+      }
+
+      const elapsed = (now - speechMotionStartTimeRef.current) / 4000;
+      const swayPhase = elapsed * Math.PI * 1.1;
+      const sway = Math.sin(swayPhase) * MathUtils.degToRad(10);
+      const counterSway = Math.sin(swayPhase + Math.PI / 2) * MathUtils.degToRad(6);
+      const armLift = Math.sin(swayPhase * 0.8) * MathUtils.degToRad(8);
+
+      setRotation(VRMHumanBoneName.Chest, {
+        x: MathUtils.degToRad(14),
+        y: counterSway * 0.1,
+        z: sway * 0.1
+      });
+
+      setRotation(VRMHumanBoneName.UpperChest, {
+        x: MathUtils.degToRad(-16),
+        y: counterSway * 0.1,
+        z: sway * 0.2
+      });
+
+      setRotation(VRMHumanBoneName.Spine, {
+        x: MathUtils.degToRad(4),
+        y: counterSway * -0.1,
+        z: sway * -0.1
+      });
+
+      setRotation(VRMHumanBoneName.LeftUpperArm, {
+        x: MathUtils.degToRad(-35) + armLift,
+        y: MathUtils.degToRad(28),
+        z: MathUtils.degToRad(-50) - sway * 0.8
+      });
+
+      setRotation(VRMHumanBoneName.LeftLowerArm, {
+        x: MathUtils.degToRad(10) + armLift * 0.5,
+        y: MathUtils.degToRad(15),
+        z: MathUtils.degToRad(-12)
+      });
+
+      setRotation(VRMHumanBoneName.RightUpperArm, {
+        x: MathUtils.degToRad(-35) - armLift,
+        y: MathUtils.degToRad(-28),
+        z: MathUtils.degToRad(50) + sway * 0.8
+      });
+
+      setRotation(VRMHumanBoneName.RightLowerArm, {
+        x: MathUtils.degToRad(-10) - armLift * 0.5,
+        y: MathUtils.degToRad(-15),
+        z: MathUtils.degToRad(12)
+      });
+
+      setRotation(VRMHumanBoneName.Neck, {
+        x: MathUtils.degToRad(4) + Math.sin(swayPhase * 0.9) * MathUtils.degToRad(2),
+        y: counterSway * -0.3,
+        z: -sway * 0.4
+      });
+
+      humanoid.update();
+
+      if (vrm.expressionManager) {
+        const blinkData = speechMotionBlinkRef.current;
+        if (!blinkData.blinking && now - blinkData.lastBlink >= 3000) {
+          blinkData.blinking = true;
+          blinkData.blinkStart = now;
+        }
+
+        let blinkWeight = 0;
+        if (blinkData.blinking) {
+          const duration = 180;
+          const progress = Math.min((now - blinkData.blinkStart) / duration, 1);
+          blinkWeight = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+          if (progress >= 1) {
+            blinkData.blinking = false;
+            blinkData.lastBlink = now;
+            blinkWeight = 0;
+          }
+        }
+
+        vrm.expressionManager.setValue('blink', blinkWeight);
+        vrm.expressionManager.update();
+      }
+
+      if (speechMotionActiveRef.current) {
+        speechMotionIdRef.current = requestAnimationFrame(animationLoop);
+      } else {
+        speechMotionIdRef.current = null;
+      }
+    };
+
+    if (speechMotionActiveRef.current) {
+      speechMotionIdRef.current = requestAnimationFrame(animationLoop);
+    }
+  }, [stopSpeechMotion]);
 
   const applyFrontPose = useCallback(() => {
     const vrm = vrmRef.current;
     if (!vrm) {
       return;
     }
+
+    stopSpeechMotion({ silent: true });
 
     if (poseAnimationIdRef.current !== null) {
       cancelAnimationFrame(poseAnimationIdRef.current);
@@ -265,7 +484,7 @@ const VrmStage = () => {
       }
       setStatus('正面ポジションを適用しました');
     }
-  }, []);
+  }, [stopSpeechMotion]);
 
   useEffect(() => {
     if (started && modelReady) {
@@ -300,12 +519,32 @@ const VrmStage = () => {
           colorScheme="blue"
           onClick={applyFrontPose}
           isDisabled={!modelReady}
-          aria-label="モデルを正面ポジションに調整する「話を聞く」"
+          aria-label="モデルを正面ポジションに調整する「正面を向く」"
           alignSelf="stretch"
           mt={{ base: 0, md: 4 }}
           mb={{ base: 0, md: 4 }}
         >
-          話を聞く
+          正面を向く
+        </Button>
+        <Button
+          size="sm"
+          colorScheme="purple"
+          variant={isSpeechMotionActive ? 'solid' : 'outline'}
+          onClick={() => {
+            if (!modelReady) return;
+            if (isSpeechMotionActive) {
+              stopSpeechMotion();
+            } else {
+              startSpeechMotion();
+            }
+          }}
+          isDisabled={!modelReady}
+          aria-label="喋るモーション1を開始または停止する"
+          aria-pressed={isSpeechMotionActive}
+          alignSelf="stretch"
+          mb={{ base: 0, md: 4 }}
+        >
+          喋るモーション1
         </Button>
       </Stack>
       <ChatComposer
