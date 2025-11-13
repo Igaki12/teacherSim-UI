@@ -187,8 +187,11 @@ const VrmStage = () => {
         humanoid.update();
       }
       if (vrmRef.current?.expressionManager) {
-        vrmRef.current.expressionManager.setValue('blink', 0);
-        vrmRef.current.expressionManager.update();
+        const manager = vrmRef.current.expressionManager;
+        manager.setValue('blink', 0);
+        manager.setValue('grip', 0);
+        manager.setValue('angry', 0);
+        manager.update();
       }
       speechMotionOriginalPoseRef.current = null;
       speechMotionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
@@ -230,6 +233,8 @@ const VrmStage = () => {
 
       if (vrm.expressionManager) {
         vrm.expressionManager.setValue('blink', 0);
+        vrm.expressionManager.setValue('grip', 0);
+        vrm.expressionManager.setValue('angry', 0);
         vrm.expressionManager.update();
       }
 
@@ -410,6 +415,7 @@ const VrmStage = () => {
       humanoid.update();
 
       if (vrm.expressionManager) {
+        const expressionManager = vrm.expressionManager;
         const blinkData = speechMotionBlinkRef.current;
         if (!blinkData.blinking && now - blinkData.lastBlink >= 3000) {
           blinkData.blinking = true;
@@ -428,8 +434,14 @@ const VrmStage = () => {
           }
         }
 
-        vrm.expressionManager.setValue('blink', blinkWeight);
-        vrm.expressionManager.update();
+        expressionManager.setValue('blink', blinkWeight);
+
+        const gripWeight = 0.2 + Math.abs(Math.sin(swayPhase * 1.1)) * 0.1;
+        expressionManager.setValue('grip', gripWeight);
+
+        expressionManager.setValue('angry', 0.5);
+
+        expressionManager.update();
       }
 
       if (speechMotionActiveRef.current) {
