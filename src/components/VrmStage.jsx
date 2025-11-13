@@ -31,6 +31,13 @@ const VrmStage = () => {
   const speechMotionStartTimeRef = useRef(0);
   const speechMotionBlinkRef = useRef({ lastBlink: 0, blinkStart: 0, blinking: false });
   const speechMotionActiveRef = useRef(false);
+  const speechMotionNodRef = useRef({
+    lastUpdate: 0,
+    elapsed: 0,
+    nextChange: 0,
+    target: 0,
+    current: 0
+  });
   const [status, setStatus] = useState('モデル読み込み中…');
   const [fps, setFps] = useState(0);
   const [modelReady, setModelReady] = useState(false);
@@ -186,6 +193,13 @@ const VrmStage = () => {
       speechMotionOriginalPoseRef.current = null;
       speechMotionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
       speechMotionStartTimeRef.current = 0;
+      speechMotionNodRef.current = {
+        lastUpdate: 0,
+        elapsed: 0,
+        nextChange: 0,
+        target: 0,
+        current: 0
+      };
     };
   }, []);
 
@@ -223,6 +237,13 @@ const VrmStage = () => {
       speechMotionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
       speechMotionStartTimeRef.current = 0;
       speechMotionActiveRef.current = false;
+      speechMotionNodRef.current = {
+        lastUpdate: 0,
+        elapsed: 0,
+        nextChange: 0,
+        target: 0,
+        current: 0
+      };
 
       if (isSpeechMotionActive) {
         setIsSpeechMotionActive(false);
@@ -251,7 +272,9 @@ const VrmStage = () => {
       VRMHumanBoneName.Chest,
       VRMHumanBoneName.Spine,
       VRMHumanBoneName.UpperChest,
-      VRMHumanBoneName.Neck
+      VRMHumanBoneName.Neck,
+      VRMHumanBoneName.LeftHand,
+      VRMHumanBoneName.RightHand
     ];
 
     const originalPose = {};
@@ -270,6 +293,13 @@ const VrmStage = () => {
       lastBlink: speechMotionStartTimeRef.current,
       blinkStart: 0,
       blinking: false
+    };
+    speechMotionNodRef.current = {
+      lastUpdate: speechMotionStartTimeRef.current,
+      elapsed: 0,
+      nextChange: 1 + Math.random() * 1.2,
+      target: 0,
+      current: 0
     };
     speechMotionActiveRef.current = true;
     setIsSpeechMotionActive(true);
@@ -292,53 +322,89 @@ const VrmStage = () => {
       const sway = Math.sin(swayPhase) * MathUtils.degToRad(10);
       const counterSway = Math.sin(swayPhase + Math.PI / 2) * MathUtils.degToRad(6);
       const armLift = Math.sin(swayPhase * 0.8) * MathUtils.degToRad(8);
+      const wristWave = Math.sin(swayPhase * 1.35) * MathUtils.degToRad(6);
+
+      const nodState = speechMotionNodRef.current;
+      let nodOffset = 0;
+      if (nodState) {
+        const deltaSeconds = nodState.lastUpdate
+          ? (now - nodState.lastUpdate) / 1000
+          : (now - speechMotionStartTimeRef.current) / 1000;
+        nodState.lastUpdate = now;
+        nodState.elapsed += deltaSeconds;
+        const smoothing = Math.min(deltaSeconds * 2.8, 1);
+        nodState.current += (nodState.target - nodState.current) * smoothing;
+        nodOffset = nodState.current;
+        if (nodState.elapsed >= nodState.nextChange) {
+          nodState.elapsed = 0;
+          nodState.nextChange = 0.9 + Math.random() * 1.1;
+          const direction = Math.random() > 0.5 ? 1 : -1;
+          const magnitude = MathUtils.degToRad(1.5 + Math.random() * 2.5);
+          nodState.target = direction * magnitude;
+        }
+      }
 
       setRotation(VRMHumanBoneName.Chest, {
-        x: MathUtils.degToRad(14),
+        x: MathUtils.degToRad(8),
         y: counterSway * 0.1,
         z: sway * 0.1
       });
 
       setRotation(VRMHumanBoneName.UpperChest, {
-        x: MathUtils.degToRad(-16),
+        x: MathUtils.degToRad(-14),
         y: counterSway * 0.1,
         z: sway * 0.2
       });
 
       setRotation(VRMHumanBoneName.Spine, {
-        x: MathUtils.degToRad(4),
+        x: MathUtils.degToRad(6),
         y: counterSway * -0.1,
         z: sway * -0.1
       });
 
       setRotation(VRMHumanBoneName.LeftUpperArm, {
-        x: MathUtils.degToRad(-35) + armLift,
+        x: MathUtils.degToRad(-35) + armLift * 0.7,
         y: MathUtils.degToRad(28),
-        z: MathUtils.degToRad(-50) - sway * 0.8
+        z: MathUtils.degToRad(-50) - sway * 0.4
       });
 
       setRotation(VRMHumanBoneName.LeftLowerArm, {
-        x: MathUtils.degToRad(10) + armLift * 0.5,
+        x: MathUtils.degToRad(-10) + armLift * 0.5,
         y: MathUtils.degToRad(15),
         z: MathUtils.degToRad(-12)
       });
 
       setRotation(VRMHumanBoneName.RightUpperArm, {
-        x: MathUtils.degToRad(-35) - armLift,
+        x: MathUtils.degToRad(-35) + armLift * 0.7,
         y: MathUtils.degToRad(-28),
-        z: MathUtils.degToRad(50) + sway * 0.8
+        z: MathUtils.degToRad(50) + sway * 0.4
       });
 
       setRotation(VRMHumanBoneName.RightLowerArm, {
-        x: MathUtils.degToRad(-10) - armLift * 0.5,
+        x: MathUtils.degToRad(-10) + armLift * 0.5,
         y: MathUtils.degToRad(-15),
         z: MathUtils.degToRad(12)
       });
 
       setRotation(VRMHumanBoneName.Neck, {
-        x: MathUtils.degToRad(4) + Math.sin(swayPhase * 0.9) * MathUtils.degToRad(2),
+        x:
+          MathUtils.degToRad(4) +
+          Math.sin(swayPhase * 0.9) * MathUtils.degToRad(2) +
+          nodOffset,
         y: counterSway * -0.3,
         z: -sway * 0.4
+      });
+
+      setRotation(VRMHumanBoneName.LeftHand, {
+        x: MathUtils.degToRad(-8) + armLift * 0.5 + wristWave * 0.6,
+        y: MathUtils.degToRad(12) + sway * 0.6,
+        z: MathUtils.degToRad(-18) + wristWave
+      });
+
+      setRotation(VRMHumanBoneName.RightHand, {
+        x: MathUtils.degToRad(-8) + armLift * 0.5 + wristWave * 0.6,
+        y: MathUtils.degToRad(-12) - sway * 0.6,
+        z: MathUtils.degToRad(18) - wristWave
       });
 
       humanoid.update();
@@ -522,7 +588,7 @@ const VrmStage = () => {
           aria-label="モデルを正面ポジションに調整する「正面を向く」"
           alignSelf="stretch"
           mt={{ base: 0, md: 4 }}
-          mb={{ base: 0, md: 4 }}
+          mb="4"
         >
           正面を向く
         </Button>
@@ -542,7 +608,7 @@ const VrmStage = () => {
           aria-label="喋るモーション1を開始または停止する"
           aria-pressed={isSpeechMotionActive}
           alignSelf="stretch"
-          mb={{ base: 0, md: 4 }}
+          mb="4"
         >
           喋るモーション1
         </Button>
