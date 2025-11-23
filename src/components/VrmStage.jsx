@@ -18,6 +18,13 @@ import useAppStore from '../store/useAppStore.js';
 import ChatComposer from './ChatComposer.jsx';
 
 const DEFAULT_MODEL_PATH = `${import.meta.env.BASE_URL}models/sample.vrm`;
+const EXPRESSION_PRESETS = [
+  { key: 'happy', label: '喜', description: '喜（ハッピー）' },
+  { key: 'angry', label: '怒', description: '怒（アングリー）' },
+  { key: 'sad', label: '哀', description: '哀（サッド）' },
+  { key: 'relaxed', label: '楽', description: '楽（リラックス）' },
+  { key: 'surprised', label: '驚', description: '驚（サプライズ）' }
+];
 
 const VrmStage = () => {
   const containerRef = useRef(null);
@@ -42,7 +49,20 @@ const VrmStage = () => {
   const [fps, setFps] = useState(0);
   const [modelReady, setModelReady] = useState(false);
   const [isSpeechMotionActive, setIsSpeechMotionActive] = useState(false);
+  const [activeExpressionKey, setActiveExpressionKey] = useState(null);
   const fpsSampleRef = useRef({ last: performance.now(), count: 0 });
+  const expressionAnimationIdRef = useRef(null);
+  const expressionLoopActiveRef = useRef(false);
+  const expressionOriginalPoseRef = useRef(null);
+  const expressionBlinkRef = useRef({ lastBlink: 0, blinkStart: 0, blinking: false });
+  const expressionNodRef = useRef({
+    lastUpdate: 0,
+    elapsed: 0,
+    nextChange: 0,
+    target: 0,
+    current: 0
+  });
+  const activeExpressionKeyRef = useRef(null);
   const started = useAppStore((state) => state.started);
 
   useEffect(() => {
@@ -203,8 +223,203 @@ const VrmStage = () => {
         target: 0,
         current: 0
       };
+      if (expressionAnimationIdRef.current !== null) {
+        cancelAnimationFrame(expressionAnimationIdRef.current);
+      }
+      expressionAnimationIdRef.current = null;
+      expressionLoopActiveRef.current = false;
+      expressionOriginalPoseRef.current = null;
+      expressionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
+      expressionNodRef.current = {
+        lastUpdate: 0,
+        elapsed: 0,
+        nextChange: 0,
+        target: 0,
+        current: 0
+      };
+      activeExpressionKeyRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    activeExpressionKeyRef.current = activeExpressionKey;
+  }, [activeExpressionKey]);
+
+  const runExpressionLoop = useCallback(() => {
+    if (expressionLoopActiveRef.current) return;
+    if (!activeExpressionKeyRef.current) return;
+    if (speechMotionActiveRef.current) return;
+
+    const vrm = vrmRef.current;
+    if (!vrm || !vrm.humanoid || !vrm.expressionManager) {
+      return;
+    }
+
+    const humanoid = vrm.humanoid;
+    const neck = humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
+    if (neck) {
+      expressionOriginalPoseRef.current = {
+        [VRMHumanBoneName.Neck]: { rotation: neck.rotation.clone() }
+      };
+    } else {
+      expressionOriginalPoseRef.current = null;
+    }
+
+    const startTime = performance.now();
+    expressionBlinkRef.current = {
+      lastBlink: startTime,
+      blinkStart: 0,
+      blinking: false
+    };
+    expressionNodRef.current = {
+      lastUpdate: startTime,
+      elapsed: 0,
+      nextChange: 1 + Math.random() * 0.7,
+      target: 0,
+      current: 0
+    };
+
+    expressionLoopActiveRef.current = true;
+
+    const loop = (now) => {
+      if (!expressionLoopActiveRef.current || !activeExpressionKeyRef.current) {
+        expressionAnimationIdRef.current = null;
+        return;
+      }
+      if (speechMotionActiveRef.current) {
+        expressionLoopActiveRef.current = false;
+        expressionAnimationIdRef.current = null;
+        return;
+      }
+
+      const vrmInstance = vrmRef.current;
+      if (!vrmInstance) {
+        expressionLoopActiveRef.current = false;
+        expressionAnimationIdRef.current = null;
+        return;
+      }
+
+      const humanoidInstance = vrmInstance.humanoid;
+      if (humanoidInstance && expressionOriginalPoseRef.current) {
+        const neckBone = humanoidInstance.getNormalizedBoneNode(VRMHumanBoneName.Neck);
+        if (neckBone) {
+          const nodState = expressionNodRef.current;
+          const deltaSeconds = nodState.lastUpdate
+            ? (now - nodState.lastUpdate) / 1000
+            : 0;
+          nodState.lastUpdate = now;
+          nodState.elapsed += deltaSeconds;
+          const smoothing = Math.min(deltaSeconds * 3, 1);
+          nodState.current += (nodState.target - nodState.current) * smoothing;
+          if (nodState.elapsed >= nodState.nextChange) {
+            nodState.elapsed = 0;
+            nodState.nextChange = 1 + Math.random() * 0.8;
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            const magnitude = MathUtils.degToRad(0.8 + Math.random() * 2);
+            nodState.target = direction * magnitude;
+          }
+          const baseRotation =
+            expressionOriginalPoseRef.current[VRMHumanBoneName.Neck]?.rotation;
+          if (baseRotation) {
+            neckBone.rotation.set(
+              baseRotation.x + nodState.current,
+              baseRotation.y,
+              baseRotation.z
+            );
+            humanoidInstance.update();
+          }
+        }
+      }
+
+      const manager = vrmInstance.expressionManager;
+      if (manager) {
+        const blinkState = expressionBlinkRef.current;
+        if (!blinkState.blinking && now - blinkState.lastBlink >= 3000) {
+          blinkState.blinking = true;
+          blinkState.blinkStart = now;
+        }
+
+        let blinkWeight = 0;
+        if (blinkState.blinking) {
+          const duration = 180;
+          const progress = Math.min((now - blinkState.blinkStart) / duration, 1);
+          blinkWeight = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+          if (progress >= 1) {
+            blinkState.blinking = false;
+            blinkState.lastBlink = now;
+            blinkWeight = 0;
+          }
+        }
+
+        manager.setValue('blink', blinkWeight);
+        EXPRESSION_PRESETS.forEach(({ key }) => {
+          // keyそれぞれで数値を変える
+          let weight = 0.5;
+          if (key == "happy") { weight = 0.8; }
+          else if (key == "angry") { weight = 0.7; }
+          manager.setValue(key, key === activeExpressionKeyRef.current ? weight : 0);
+          
+
+        });
+        manager.update();
+      }
+
+      expressionAnimationIdRef.current = requestAnimationFrame(loop);
+    };
+
+    expressionAnimationIdRef.current = requestAnimationFrame(loop);
+  }, []);
+
+  const stopExpressionMotion = useCallback(
+    (options = {}) => {
+      const { silent = false, preserveSelection = false } = options;
+      const vrm = vrmRef.current;
+
+      if (expressionAnimationIdRef.current !== null) {
+        cancelAnimationFrame(expressionAnimationIdRef.current);
+        expressionAnimationIdRef.current = null;
+      }
+      expressionLoopActiveRef.current = false;
+
+      if (vrm?.humanoid && expressionOriginalPoseRef.current) {
+        Object.entries(expressionOriginalPoseRef.current).forEach(([boneName, pose]) => {
+          const bone = vrm.humanoid.getNormalizedBoneNode(boneName);
+          if (bone && pose?.rotation) {
+            bone.rotation.copy(pose.rotation);
+          }
+        });
+        vrm.humanoid.update();
+      }
+      expressionOriginalPoseRef.current = null;
+
+      expressionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
+      expressionNodRef.current = {
+        lastUpdate: 0,
+        elapsed: 0,
+        nextChange: 0,
+        target: 0,
+        current: 0
+      };
+
+      if (!preserveSelection && activeExpressionKey !== null) {
+        setActiveExpressionKey(null);
+        activeExpressionKeyRef.current = null;
+      }
+
+      if (vrm?.expressionManager && !preserveSelection) {
+        EXPRESSION_PRESETS.forEach(({ key }) => {
+          vrm.expressionManager.setValue(key, 0);
+        });
+        vrm.expressionManager.setValue('blink', 0);
+        vrm.expressionManager.update();
+      }
+
+      if (!silent && !preserveSelection) {
+        setStatus('表情モーションを停止しました');
+      }
+    },
+    [activeExpressionKey]
+  );
 
   const stopSpeechMotion = useCallback(
     (options = {}) => {
@@ -232,10 +447,22 @@ const VrmStage = () => {
       }
 
       if (vrm.expressionManager) {
-        vrm.expressionManager.setValue('blink', 0);
-        vrm.expressionManager.setValue('grip', 0);
-        vrm.expressionManager.setValue('angry', 0);
-        vrm.expressionManager.update();
+        const manager = vrm.expressionManager;
+        manager.setValue('blink', 0);
+        manager.setValue('grip', 0);
+        if (activeExpressionKeyRef.current) {
+          EXPRESSION_PRESETS.forEach(({ key }) => {
+            manager.setValue(
+              key,
+              key === activeExpressionKeyRef.current ? 0.5 : 0
+            );
+          });
+        } else {
+          EXPRESSION_PRESETS.forEach(({ key }) => {
+            manager.setValue(key, 0);
+          });
+        }
+        manager.update();
       }
 
       speechMotionOriginalPoseRef.current = null;
@@ -253,11 +480,14 @@ const VrmStage = () => {
       if (isSpeechMotionActive) {
         setIsSpeechMotionActive(false);
       }
+      if (!options.silent && activeExpressionKeyRef.current) {
+        runExpressionLoop();
+      }
       if (!options.silent) {
         setStatus('モーションを停止しました');
       }
     },
-    [isSpeechMotionActive]
+    [isSpeechMotionActive, runExpressionLoop]
   );
 
   const startSpeechMotion = useCallback(() => {
@@ -266,6 +496,7 @@ const VrmStage = () => {
       return;
     }
 
+    stopExpressionMotion({ silent: true, preserveSelection: true });
     stopSpeechMotion({ silent: true });
 
     const humanoid = vrm.humanoid;
@@ -438,8 +669,13 @@ const VrmStage = () => {
 
         const gripWeight = 0.2 + Math.abs(Math.sin(swayPhase * 1.1)) * 0.1;
         expressionManager.setValue('grip', gripWeight);
-
-        expressionManager.setValue('angry', 0.5);
+        const selectedExpressionKey = activeExpressionKeyRef.current || 'angry';
+        EXPRESSION_PRESETS.forEach(({ key }) => {
+          expressionManager.setValue(
+            key,
+            key === selectedExpressionKey ? 0.5 : 0
+          );
+        });
 
         expressionManager.update();
       }
@@ -454,7 +690,25 @@ const VrmStage = () => {
     if (speechMotionActiveRef.current) {
       speechMotionIdRef.current = requestAnimationFrame(animationLoop);
     }
-  }, [stopSpeechMotion]);
+  }, [stopExpressionMotion, stopSpeechMotion]);
+
+  const handleExpressionButtonClick = useCallback(
+    (preset) => {
+      if (!modelReady) return;
+      if (activeExpressionKey === preset.key) {
+        stopExpressionMotion();
+        return;
+      }
+      stopExpressionMotion({ silent: true });
+      setActiveExpressionKey(preset.key);
+      activeExpressionKeyRef.current = preset.key;
+      setStatus(`${preset.label} の表情モーションを開始しました`);
+      if (!speechMotionActiveRef.current) {
+        runExpressionLoop();
+      }
+    },
+    [activeExpressionKey, modelReady, runExpressionLoop, setStatus, stopExpressionMotion]
+  );
 
   const applyFrontPose = useCallback(() => {
     const vrm = vrmRef.current;
@@ -624,12 +878,35 @@ const VrmStage = () => {
         >
           喋るモーション1
         </Button>
+        <Stack
+          direction="row"
+          spacing="2"
+          flexWrap="wrap"
+          mt="1"
+          aria-label="表情プリセット"
+        >
+          {EXPRESSION_PRESETS.map((preset) => (
+            <Button
+              key={preset.key}
+              size="xs"
+              flex="1"
+              colorScheme="pink"
+              variant={activeExpressionKey === preset.key ? 'solid' : 'outline'}
+              onClick={() => handleExpressionButtonClick(preset)}
+              isDisabled={!modelReady}
+              aria-pressed={activeExpressionKey === preset.key}
+              aria-label={`${preset.description} 表情モーションを切り替える`}
+            >
+              {preset.label}
+            </Button>
+          ))}
+        </Stack>
       </Stack>
       <ChatComposer
         inputId="vrm-chat-input"
         display={{ base: 'flex', md: 'none' }}
         w="100%"
-        mb={{ base: '10vh', md: 0 }}
+        mb={{ base: '2vh', md: 0 }}
       />
     </Stack>
   );

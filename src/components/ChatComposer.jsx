@@ -107,7 +107,6 @@ const ChatComposer = ({ inputId = 'chat-input', ...props }) => {
   return (
     <Stack spacing={3} as="form" onSubmit={handleSubmit} {...props}>
       <FormControl>
-        <FormLabel htmlFor={inputId}>メッセージ入力</FormLabel>
         <Input
           id={inputId}
           value={chatInput}
