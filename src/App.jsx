@@ -8,6 +8,7 @@ import {
   Grid,
   GridItem,
   useColorModeValue,
+  useBreakpointValue,
   useDisclosure
 } from '@chakra-ui/react';
 import { useRef } from 'react';
@@ -50,12 +51,20 @@ const App = () => {
   const chatDrawer = useDisclosure();
   const endDialog = useDisclosure();
   const cancelRef = useRef();
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   const canEndTraining = started && !trainingEnded;
 
   const handleConfirmEnd = () => {
     endTraining();
     endDialog.onClose();
+  };
+
+  const handleAfterLogin = () => {
+    if (isMobile) {
+      scenarioDrawer.onOpen();
+      chatDrawer.onClose();
+    }
   };
 
   const mainBg = useColorModeValue('gray.100', 'gray.900');
@@ -84,7 +93,7 @@ const App = () => {
           flexDirection="column"
           overflow="hidden"
         >
-          <AuthDummy />
+          <AuthDummy onAfterLogin={handleAfterLogin} />
           {!isAuthenticated ? (
             <Alert status="info" borderRadius="md">
               <AlertIcon />
