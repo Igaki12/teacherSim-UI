@@ -85,8 +85,8 @@ const App = () => {
       <Box
         as="main"
         flex="1"
-        py={{ base: 6, md: 10 }}
-        pb={{ base: 'calc(var(--chakra-space-6) + env(safe-area-inset-bottom, 0px))', md: 10 }}
+        py="4"
+        pb="4"
         display="flex"
         overflow="hidden"
       >
