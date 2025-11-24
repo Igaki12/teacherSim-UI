@@ -857,10 +857,10 @@ const VrmStage = () => {
           _after={{
             content: "''",
             position: 'absolute',
-            top: '-9px',
+            top: '-14px',
             left: '70%',
             width: '2px',
-            height: '9px',
+            height: '14px',
             bg: assistantBubbleBg,
             borderRadius: 'full',
             transform: 'translateX(-50%) rotate(-14deg)',
