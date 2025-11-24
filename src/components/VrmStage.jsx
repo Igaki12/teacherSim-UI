@@ -618,7 +618,7 @@ const VrmStage = () => {
       }
 
       const t = timestamp / 1000;
-      state.currentWeight = 0.1 + 0.3 * Math.sin(t * 6 + state.mouthPhase);
+      state.currentWeight = 0 + 0.2 * Math.sin(t * 6 + state.mouthPhase);
       if (state.currentWeight < 0) {
         state.currentWeight = 0;
       }
