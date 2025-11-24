@@ -33,22 +33,9 @@ const VrmStage = () => {
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
   const poseAnimationIdRef = useRef(null);
-  const speechMotionIdRef = useRef(null);
-  const speechMotionOriginalPoseRef = useRef(null);
-  const speechMotionStartTimeRef = useRef(0);
-  const speechMotionBlinkRef = useRef({ lastBlink: 0, blinkStart: 0, blinking: false });
-  const speechMotionActiveRef = useRef(false);
-  const speechMotionNodRef = useRef({
-    lastUpdate: 0,
-    elapsed: 0,
-    nextChange: 0,
-    target: 0,
-    current: 0
-  });
   const [status, setStatus] = useState('モデル読み込み中…');
   const [fps, setFps] = useState(0);
   const [modelReady, setModelReady] = useState(false);
-  const [isSpeechMotionActive, setIsSpeechMotionActive] = useState(false);
   const [activeExpressionKey, setActiveExpressionKey] = useState(null);
   const fpsSampleRef = useRef({ last: performance.now(), count: 0 });
   const expressionAnimationIdRef = useRef(null);
@@ -76,8 +63,7 @@ const VrmStage = () => {
       target: 0,
       current: 0
     },
-    originalPose: null,
-    wasSpeechMotionActive: false
+    originalPose: null
   });
   const assistantBubbleTimeoutRef = useRef({ hide: null, clear: null });
   const assistantBubbleRafRef = useRef(null);
@@ -216,21 +202,6 @@ const VrmStage = () => {
         cancelAnimationFrame(poseAnimationIdRef.current);
       }
       poseAnimationIdRef.current = null;
-      if (speechMotionIdRef.current !== null) {
-        cancelAnimationFrame(speechMotionIdRef.current);
-      }
-      speechMotionIdRef.current = null;
-      speechMotionActiveRef.current = false;
-      if (vrmRef.current?.humanoid && speechMotionOriginalPoseRef.current) {
-        const humanoid = vrmRef.current.humanoid;
-        Object.entries(speechMotionOriginalPoseRef.current).forEach(([boneName, pose]) => {
-          const bone = humanoid.getNormalizedBoneNode(boneName);
-          if (bone && pose?.rotation) {
-            bone.rotation.copy(pose.rotation);
-          }
-        });
-        humanoid.update();
-      }
       if (vrmRef.current?.expressionManager) {
         const manager = vrmRef.current.expressionManager;
         manager.setValue('blink', 0);
@@ -238,16 +209,6 @@ const VrmStage = () => {
         manager.setValue('angry', 0);
         manager.update();
       }
-      speechMotionOriginalPoseRef.current = null;
-      speechMotionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
-      speechMotionStartTimeRef.current = 0;
-      speechMotionNodRef.current = {
-        lastUpdate: 0,
-        elapsed: 0,
-        nextChange: 0,
-        target: 0,
-        current: 0
-      };
       if (expressionAnimationIdRef.current !== null) {
         cancelAnimationFrame(expressionAnimationIdRef.current);
       }
@@ -273,7 +234,6 @@ const VrmStage = () => {
   const runExpressionLoop = useCallback(() => {
     if (expressionLoopActiveRef.current) return;
     if (!activeExpressionKeyRef.current) return;
-    if (speechMotionActiveRef.current) return;
 
     const vrm = vrmRef.current;
     if (!vrm || !vrm.humanoid || !vrm.expressionManager) {
@@ -311,12 +271,6 @@ const VrmStage = () => {
         expressionAnimationIdRef.current = null;
         return;
       }
-      if (speechMotionActiveRef.current) {
-        expressionLoopActiveRef.current = false;
-        expressionAnimationIdRef.current = null;
-        return;
-      }
-
       const vrmInstance = vrmRef.current;
       if (!vrmInstance) {
         expressionLoopActiveRef.current = false;
@@ -395,6 +349,12 @@ const VrmStage = () => {
     expressionAnimationIdRef.current = requestAnimationFrame(loop);
   }, []);
 
+  const resumeExpressionIfSelected = useCallback(() => {
+    if (activeExpressionKeyRef.current) {
+      runExpressionLoop();
+    }
+  }, [runExpressionLoop]);
+
   const stopExpressionMotion = useCallback(
     (options = {}) => {
       const { silent = false, preserveSelection = false } = options;
@@ -446,77 +406,6 @@ const VrmStage = () => {
     [activeExpressionKey]
   );
 
-  const stopSpeechMotion = useCallback(
-    (options = {}) => {
-      const vrm = vrmRef.current;
-      if (!vrm) {
-        speechMotionActiveRef.current = false;
-        speechMotionIdRef.current = null;
-        return;
-      }
-
-      if (speechMotionIdRef.current !== null) {
-        cancelAnimationFrame(speechMotionIdRef.current);
-        speechMotionIdRef.current = null;
-      }
-
-      const humanoid = vrm.humanoid;
-      if (humanoid && speechMotionOriginalPoseRef.current) {
-        Object.entries(speechMotionOriginalPoseRef.current).forEach(([boneName, pose]) => {
-          const bone = humanoid.getNormalizedBoneNode(boneName);
-          if (bone && pose?.rotation) {
-            bone.rotation.copy(pose.rotation);
-          }
-        });
-        humanoid.update();
-      }
-
-      if (vrm.expressionManager) {
-        const manager = vrm.expressionManager;
-        manager.setValue('blink', 0);
-        manager.setValue('grip', 0);
-        const bubbleState = assistantBubbleStateRef.current;
-        const bubbleWeight = bubbleState.active ? bubbleState.currentWeight : 0;
-        EXPRESSION_PRESETS.forEach(({ key }) => {
-          if (key === 'surprised') {
-            const selectedWeight = activeExpressionKeyRef.current === 'surprised' ? 0.5 : 0;
-            manager.setValue(key, Math.max(bubbleWeight, selectedWeight));
-          } else {
-            const weight =
-              activeExpressionKeyRef.current && key === activeExpressionKeyRef.current
-                ? 0.5
-                : 0;
-            manager.setValue(key, weight);
-          }
-        });
-        manager.update();
-      }
-
-      speechMotionOriginalPoseRef.current = null;
-      speechMotionBlinkRef.current = { lastBlink: 0, blinkStart: 0, blinking: false };
-      speechMotionStartTimeRef.current = 0;
-      speechMotionActiveRef.current = false;
-      speechMotionNodRef.current = {
-        lastUpdate: 0,
-        elapsed: 0,
-        nextChange: 0,
-        target: 0,
-        current: 0
-      };
-
-      if (isSpeechMotionActive) {
-        setIsSpeechMotionActive(false);
-      }
-      if (!options.silent && activeExpressionKeyRef.current) {
-        runExpressionLoop();
-      }
-      if (!options.silent) {
-        setStatus('モーションを停止しました');
-      }
-    },
-    [isSpeechMotionActive, runExpressionLoop]
-  );
-
   const clearAssistantBubbleTimers = useCallback(() => {
     const timers = assistantBubbleTimeoutRef.current;
     if (timers.hide) {
@@ -537,7 +426,7 @@ const VrmStage = () => {
       assistantBubbleAnimationIdRef.current = null;
     }
     const vrm = vrmRef.current;
-    if (vrm?.humanoid && state.originalPose && !speechMotionActiveRef.current) {
+    if (vrm?.humanoid && state.originalPose) {
       Object.entries(state.originalPose).forEach(([boneName, pose]) => {
         const bone = vrm.humanoid.getNormalizedBoneNode(boneName);
         if (bone && pose?.rotation) {
@@ -556,8 +445,14 @@ const VrmStage = () => {
       target: 0,
       current: 0
     };
-    state.wasSpeechMotionActive = false;
   }, []);
+
+  const interruptAssistantBubble = useCallback(() => {
+    clearAssistantBubbleTimers();
+    stopAssistantBubbleMotion();
+    setIsAssistantBubbleVisible(false);
+    setAssistantBubbleText('');
+  }, [clearAssistantBubbleTimers, stopAssistantBubbleMotion]);
 
   const hideAssistantBubble = useCallback(() => {
     const timers = assistantBubbleTimeoutRef.current;
@@ -572,7 +467,7 @@ const VrmStage = () => {
     timers.clear = setTimeout(() => {
       setAssistantBubbleText('');
       stopAssistantBubbleMotion();
-      if (!speechMotionActiveRef.current && activeExpressionKeyRef.current) {
+      if (activeExpressionKeyRef.current) {
         runExpressionLoop();
       }
       timers.clear = null;
@@ -597,9 +492,8 @@ const VrmStage = () => {
       target: 0,
       current: 0
     };
-    state.wasSpeechMotionActive = speechMotionActiveRef.current;
 
-    if (!speechMotionActiveRef.current && vrm.humanoid) {
+    if (vrm.humanoid) {
       const neck = vrm.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
       state.originalPose = neck
         ? {
@@ -618,87 +512,75 @@ const VrmStage = () => {
       }
 
       const t = timestamp / 1000;
-      state.currentWeight = 0 + 0.2 * Math.sin(t * 6 + state.mouthPhase);
+      state.currentWeight = 0.1 + 0.3 * Math.sin(t * 6 + state.mouthPhase);
       if (state.currentWeight < 0) {
         state.currentWeight = 0;
       }
 
-      if (speechMotionActiveRef.current) {
-        state.wasSpeechMotionActive = true;
-      } else {
-        if (state.wasSpeechMotionActive) {
-          state.wasSpeechMotionActive = false;
-          if (vrmInstance.humanoid) {
-            const neck = vrmInstance.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
-            state.originalPose = neck
-              ? {
-                  [VRMHumanBoneName.Neck]: { rotation: neck.rotation.clone() }
-                }
-              : null;
+      if (vrmInstance.humanoid && state.originalPose) {
+        const neckBone = vrmInstance.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
+        if (neckBone) {
+          const nodState = state.nod;
+          const deltaSeconds = nodState.lastUpdate
+            ? (timestamp - nodState.lastUpdate) / 1000
+            : 0;
+          nodState.lastUpdate = timestamp;
+          nodState.elapsed += deltaSeconds;
+          const smoothing = Math.min(deltaSeconds * 5, 1);
+          nodState.current += (nodState.target - nodState.current) * smoothing;
+          if (nodState.elapsed >= nodState.nextChange) {
+            nodState.elapsed = 0;
+            nodState.nextChange = 0.6 + Math.random() * 0.9;
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            const magnitude = MathUtils.degToRad(0.7 + Math.random() * 1.2);
+            nodState.target = direction * magnitude;
+          }
+          const baseRotation = state.originalPose[VRMHumanBoneName.Neck]?.rotation;
+          if (baseRotation) {
+            neckBone.rotation.set(
+              baseRotation.x + nodState.current,
+              baseRotation.y,
+              baseRotation.z
+            );
+            vrmInstance.humanoid.update();
+          }
+        }
+      }
+
+      const manager = vrmInstance.expressionManager;
+      if (manager) {
+        const blinkState = state.blink;
+        if (!blinkState.blinking && timestamp - blinkState.lastBlink >= 3000) {
+          blinkState.blinking = true;
+          blinkState.blinkStart = timestamp;
+        }
+        let blinkWeight = 0;
+        if (blinkState.blinking) {
+          const duration = 160;
+          const progress = Math.min((timestamp - blinkState.blinkStart) / duration, 1);
+          blinkWeight = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+          if (progress >= 1) {
+            blinkState.blinking = false;
+            blinkState.lastBlink = timestamp;
+            blinkWeight = 0;
           }
         }
 
-        if (vrmInstance.humanoid && state.originalPose) {
-          const neckBone = vrmInstance.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
-          if (neckBone) {
-            const nodState = state.nod;
-            const deltaSeconds = nodState.lastUpdate
-              ? (timestamp - nodState.lastUpdate) / 1000
-              : 0;
-            nodState.lastUpdate = timestamp;
-            nodState.elapsed += deltaSeconds;
-            const smoothing = Math.min(deltaSeconds * 5, 1);
-            nodState.current += (nodState.target - nodState.current) * smoothing;
-            if (nodState.elapsed >= nodState.nextChange) {
-              nodState.elapsed = 0;
-              nodState.nextChange = 0.6 + Math.random() * 0.9;
-              const direction = Math.random() > 0.5 ? 1 : -1;
-              const magnitude = MathUtils.degToRad(0.7 + Math.random() * 1.2);
-              nodState.target = direction * magnitude;
-            }
-            const baseRotation = state.originalPose[VRMHumanBoneName.Neck]?.rotation;
-            if (baseRotation) {
-              neckBone.rotation.set(
-                baseRotation.x + nodState.current,
-                baseRotation.y,
-                baseRotation.z
-              );
-              vrmInstance.humanoid.update();
-            }
+        manager.setValue('blink', blinkWeight);
+        const selectedKey = activeExpressionKeyRef.current;
+        EXPRESSION_PRESETS.forEach(({ key }) => {
+          if (key === 'surprised') {
+            const selectedWeight = selectedKey === 'surprised' ? 0.5 : 0;
+            const bubbleWeight =
+              selectedKey === 'surprised'
+                ? state.currentWeight
+                : Math.max(state.currentWeight, selectedWeight);
+            manager.setValue(key, bubbleWeight);
+          } else {
+            manager.setValue(key, key === selectedKey ? 0.5 : 0);
           }
-        }
-
-        const manager = vrmInstance.expressionManager;
-        if (manager) {
-          const blinkState = state.blink;
-          if (!blinkState.blinking && timestamp - blinkState.lastBlink >= 3000) {
-            blinkState.blinking = true;
-            blinkState.blinkStart = timestamp;
-          }
-          let blinkWeight = 0;
-          if (blinkState.blinking) {
-            const duration = 160;
-            const progress = Math.min((timestamp - blinkState.blinkStart) / duration, 1);
-            blinkWeight = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
-            if (progress >= 1) {
-              blinkState.blinking = false;
-              blinkState.lastBlink = timestamp;
-              blinkWeight = 0;
-            }
-          }
-
-          manager.setValue('blink', blinkWeight);
-          const selectedKey = activeExpressionKeyRef.current;
-          EXPRESSION_PRESETS.forEach(({ key }) => {
-            if (key === 'surprised') {
-              const selectedWeight = selectedKey === 'surprised' ? 0.5 : 0;
-              manager.setValue(key, Math.max(state.currentWeight, selectedWeight));
-            } else {
-              manager.setValue(key, key === selectedKey ? 0.5 : 0);
-            }
-          });
-          manager.update();
-        }
+        });
+        manager.update();
       }
 
       assistantBubbleAnimationIdRef.current = requestAnimationFrame(animate);
@@ -746,215 +628,6 @@ const VrmStage = () => {
     ]
   );
 
-  const startSpeechMotion = useCallback(() => {
-    const vrm = vrmRef.current;
-    if (!vrm || !vrm.humanoid) {
-      return;
-    }
-
-    stopExpressionMotion({ silent: true, preserveSelection: true });
-    stopSpeechMotion({ silent: true });
-
-    const humanoid = vrm.humanoid;
-    const boneNames = [
-      VRMHumanBoneName.LeftUpperArm,
-      VRMHumanBoneName.LeftLowerArm,
-      VRMHumanBoneName.RightUpperArm,
-      VRMHumanBoneName.RightLowerArm,
-      VRMHumanBoneName.Chest,
-      VRMHumanBoneName.Spine,
-      VRMHumanBoneName.UpperChest,
-      VRMHumanBoneName.Neck,
-      VRMHumanBoneName.LeftHand,
-      VRMHumanBoneName.RightHand
-    ];
-
-    const originalPose = {};
-    const boneMap = {};
-    boneNames.forEach((name) => {
-      const bone = humanoid.getNormalizedBoneNode(name);
-      if (bone) {
-        originalPose[name] = { rotation: bone.rotation.clone() };
-        boneMap[name] = bone;
-      }
-    });
-
-    speechMotionOriginalPoseRef.current = originalPose;
-    speechMotionStartTimeRef.current = performance.now();
-    speechMotionBlinkRef.current = {
-      lastBlink: speechMotionStartTimeRef.current,
-      blinkStart: 0,
-      blinking: false
-    };
-    speechMotionNodRef.current = {
-      lastUpdate: speechMotionStartTimeRef.current,
-      elapsed: 0,
-      nextChange: 1 + Math.random() * 1.2,
-      target: 0,
-      current: 0
-    };
-    speechMotionActiveRef.current = true;
-    setIsSpeechMotionActive(true);
-    setStatus('喋るモーション1 再生中');
-
-    const setRotation = (boneName, { x = 0, y = 0, z = 0 }) => {
-      const target = boneMap[boneName];
-      if (target) {
-        target.rotation.set(x, y, z);
-      }
-    };
-
-    const animationLoop = (now) => {
-      if (!speechMotionActiveRef.current) {
-        return;
-      }
-
-      const elapsed = (now - speechMotionStartTimeRef.current) / 4000;
-      const swayPhase = elapsed * Math.PI * 1.1;
-      const sway = Math.sin(swayPhase) * MathUtils.degToRad(10);
-      const counterSway = Math.sin(swayPhase + Math.PI / 2) * MathUtils.degToRad(6);
-      const armLift = Math.sin(swayPhase * 0.8) * MathUtils.degToRad(8);
-      const wristWave = Math.sin(swayPhase * 1.35) * MathUtils.degToRad(6);
-
-      const nodState = speechMotionNodRef.current;
-      let nodOffset = 0;
-      if (nodState) {
-        const deltaSeconds = nodState.lastUpdate
-          ? (now - nodState.lastUpdate) / 1000
-          : (now - speechMotionStartTimeRef.current) / 1000;
-        nodState.lastUpdate = now;
-        nodState.elapsed += deltaSeconds;
-        const smoothing = Math.min(deltaSeconds * 2.8, 1);
-        nodState.current += (nodState.target - nodState.current) * smoothing;
-        nodOffset = nodState.current;
-        if (nodState.elapsed >= nodState.nextChange) {
-          nodState.elapsed = 0;
-          nodState.nextChange = 0.9 + Math.random() * 1.1;
-          const direction = Math.random() > 0.5 ? 1 : -1;
-          const magnitude = MathUtils.degToRad(1.5 + Math.random() * 2.5);
-          nodState.target = direction * magnitude;
-        }
-      }
-
-      setRotation(VRMHumanBoneName.Chest, {
-        x: MathUtils.degToRad(8),
-        y: counterSway * 0.1,
-        z: sway * 0.1
-      });
-
-      setRotation(VRMHumanBoneName.UpperChest, {
-        x: MathUtils.degToRad(-14),
-        y: counterSway * 0.1,
-        z: sway * 0.2
-      });
-
-      setRotation(VRMHumanBoneName.Spine, {
-        x: MathUtils.degToRad(6),
-        y: counterSway * -0.1,
-        z: sway * -0.1
-      });
-
-      setRotation(VRMHumanBoneName.LeftUpperArm, {
-        x: MathUtils.degToRad(-35) + armLift * 0.7,
-        y: MathUtils.degToRad(28),
-        z: MathUtils.degToRad(-50) - sway * 0.4
-      });
-
-      setRotation(VRMHumanBoneName.LeftLowerArm, {
-        x: MathUtils.degToRad(-10) + armLift * 0.5,
-        y: MathUtils.degToRad(15),
-        z: MathUtils.degToRad(-12)
-      });
-
-      setRotation(VRMHumanBoneName.RightUpperArm, {
-        x: MathUtils.degToRad(-35) + armLift * 0.7,
-        y: MathUtils.degToRad(-28),
-        z: MathUtils.degToRad(50) + sway * 0.4
-      });
-
-      setRotation(VRMHumanBoneName.RightLowerArm, {
-        x: MathUtils.degToRad(-10) + armLift * 0.5,
-        y: MathUtils.degToRad(-15),
-        z: MathUtils.degToRad(12)
-      });
-
-      setRotation(VRMHumanBoneName.Neck, {
-        x:
-          MathUtils.degToRad(4) +
-          Math.sin(swayPhase * 0.9) * MathUtils.degToRad(2) +
-          nodOffset,
-        y: counterSway * -0.3,
-        z: -sway * 0.4
-      });
-
-      setRotation(VRMHumanBoneName.LeftHand, {
-        x: MathUtils.degToRad(-8) + armLift * 0.5 + wristWave * 0.6,
-        y: MathUtils.degToRad(12) + sway * 0.6,
-        z: MathUtils.degToRad(-18) + wristWave
-      });
-
-      setRotation(VRMHumanBoneName.RightHand, {
-        x: MathUtils.degToRad(-8) + armLift * 0.5 + wristWave * 0.6,
-        y: MathUtils.degToRad(-12) - sway * 0.6,
-        z: MathUtils.degToRad(18) - wristWave
-      });
-
-      humanoid.update();
-
-      if (vrm.expressionManager) {
-        const expressionManager = vrm.expressionManager;
-        const blinkData = speechMotionBlinkRef.current;
-        if (!blinkData.blinking && now - blinkData.lastBlink >= 3000) {
-          blinkData.blinking = true;
-          blinkData.blinkStart = now;
-        }
-
-        let blinkWeight = 0;
-        if (blinkData.blinking) {
-          const duration = 180;
-          const progress = Math.min((now - blinkData.blinkStart) / duration, 1);
-          blinkWeight = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
-          if (progress >= 1) {
-            blinkData.blinking = false;
-            blinkData.lastBlink = now;
-            blinkWeight = 0;
-          }
-        }
-
-        expressionManager.setValue('blink', blinkWeight);
-
-        const gripWeight = 0.2 + Math.abs(Math.sin(swayPhase * 1.1)) * 0.1;
-        expressionManager.setValue('grip', gripWeight);
-        const selectedExpressionKey = activeExpressionKeyRef.current || 'angry';
-        const bubbleState = assistantBubbleStateRef.current;
-        const bubbleWeight = bubbleState.active ? bubbleState.currentWeight : 0;
-        EXPRESSION_PRESETS.forEach(({ key }) => {
-          if (key === 'surprised') {
-            const selectedWeight = selectedExpressionKey === 'surprised' ? 0.5 : 0;
-            expressionManager.setValue(key, Math.max(bubbleWeight, selectedWeight));
-          } else {
-            expressionManager.setValue(
-              key,
-              key === selectedExpressionKey ? 0.5 : 0
-            );
-          }
-        });
-
-        expressionManager.update();
-      }
-
-      if (speechMotionActiveRef.current) {
-        speechMotionIdRef.current = requestAnimationFrame(animationLoop);
-      } else {
-        speechMotionIdRef.current = null;
-      }
-    };
-
-    if (speechMotionActiveRef.current) {
-      speechMotionIdRef.current = requestAnimationFrame(animationLoop);
-    }
-  }, [stopExpressionMotion, stopSpeechMotion]);
-
   const handleExpressionButtonClick = useCallback(
     (preset) => {
       if (!modelReady) return;
@@ -962,15 +635,21 @@ const VrmStage = () => {
         stopExpressionMotion();
         return;
       }
+      interruptAssistantBubble();
       stopExpressionMotion({ silent: true });
       setActiveExpressionKey(preset.key);
       activeExpressionKeyRef.current = preset.key;
       setStatus(`${preset.label} の表情モーションを開始しました`);
-      if (!speechMotionActiveRef.current) {
-        runExpressionLoop();
-      }
+      runExpressionLoop();
     },
-    [activeExpressionKey, modelReady, runExpressionLoop, setStatus, stopExpressionMotion]
+    [
+      activeExpressionKey,
+      interruptAssistantBubble,
+      modelReady,
+      runExpressionLoop,
+      setStatus,
+      stopExpressionMotion
+    ]
   );
 
   const applyFrontPose = useCallback(() => {
@@ -979,7 +658,8 @@ const VrmStage = () => {
       return;
     }
 
-    stopSpeechMotion({ silent: true });
+    interruptAssistantBubble();
+    stopExpressionMotion({ silent: true, preserveSelection: true });
 
     if (poseAnimationIdRef.current !== null) {
       cancelAnimationFrame(poseAnimationIdRef.current);
@@ -1068,6 +748,7 @@ const VrmStage = () => {
           }
           poseAnimationIdRef.current = null;
           setStatus('正面ポジションを適用しました');
+          resumeExpressionIfSelected();
         }
       };
 
@@ -1078,8 +759,9 @@ const VrmStage = () => {
         controls.update();
       }
       setStatus('正面ポジションを適用しました');
+      resumeExpressionIfSelected();
     }
-  }, [stopSpeechMotion]);
+  }, [interruptAssistantBubble, resumeExpressionIfSelected, stopExpressionMotion]);
 
   useEffect(() => {
     if (started && modelReady) {
@@ -1225,26 +907,6 @@ const VrmStage = () => {
           mb="4"
         >
           正面を向く
-        </Button>
-        <Button
-          size="sm"
-          colorScheme="purple"
-          variant={isSpeechMotionActive ? 'solid' : 'outline'}
-          onClick={() => {
-            if (!modelReady) return;
-            if (isSpeechMotionActive) {
-              stopSpeechMotion();
-            } else {
-              startSpeechMotion();
-            }
-          }}
-          isDisabled={!modelReady}
-          aria-label="喋るモーション1を開始または停止する"
-          aria-pressed={isSpeechMotionActive}
-          alignSelf="stretch"
-          mb="4"
-        >
-          喋るモーション1
         </Button>
         <Stack
           direction="row"
