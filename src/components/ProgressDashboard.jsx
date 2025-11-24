@@ -1,5 +1,10 @@
 import {
+  Badge,
   Box,
+  Checkbox,
+  Code,
+  CircularProgress,
+  CircularProgressLabel,
   Heading,
   HStack,
   Progress,
@@ -38,8 +43,55 @@ const ProgressDashboard = ({ scores, isVisible }) => {
     ...mockHistory,
     { id: '今回', title: '今回のセッション', total: summary.averageTotal }
   ];
+  const filteredScores = scores.filter(
+    (score) => score && typeof score.vectorScore === 'number'
+  );
+  const vectorLabels = ['状況整理', '意図確認', '共感応答', '提案整理'];
+  const recentVectorScores = filteredScores.slice(-4);
+  const hasRecentScores = recentVectorScores.length > 0;
+  const vectorBreakdown =
+    (hasRecentScores ? recentVectorScores : new Array(4).fill(null)).map(
+      (score, index, array) => {
+        const turnIndex = hasRecentScores
+          ? filteredScores.length - array.length + index + 1
+          : index + 1;
+        const vectorScore = hasRecentScores ? score.vectorScore : 70 + index * 4;
+        return {
+          id: score?.messageId || `dummy-${index}`,
+          label: vectorLabels[index % vectorLabels.length],
+          turn: hasRecentScores
+            ? `messages user true #${turnIndex}`
+            : `ダミー発言 #${turnIndex}`,
+          vectorScore
+        };
+      }
+    );
+  const deductionCandidates = [
+    {
+      id: 'keigo',
+      label: '敬語表現の乱れ',
+      hint: '語尾がカジュアルに崩れていないかチェック',
+      deduction: 5,
+      detected: hasRecentScores ? summary.averageChecklist < 75 : true
+    },
+    {
+      id: 'apology',
+      label: '謝罪/共感の不足',
+      hint: '相手感情の言及やクッション言葉が薄い場合に減点',
+      deduction: 3,
+      detected: hasRecentScores ? summary.averageVector < 75 : false
+    },
+    {
+      id: 'followup',
+      label: '確認質問の不足',
+      hint: 'Yes/No 以外の深掘りが無いと判断された箇所',
+      deduction: 2,
+      detected: hasRecentScores ? summary.averageTotal < 80 : false
+    }
+  ];
   const maxScore = Math.max(...combinedHistory.map((item) => item.total), 1);
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const progressTrackColor = useColorModeValue('blue.50', 'blue.900');
 
   return (
     <Box mt={4} borderWidth="1px" borderRadius="md" p={4}>
@@ -49,21 +101,80 @@ const ProgressDashboard = ({ scores, isVisible }) => {
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
         <Stack spacing={3}>
           <Heading size="xs" color="gray.500">
-            スパークライン（擬似）
+            擬似ベクトル採点の流れ
           </Heading>
-          <HStack align="flex-end" spacing={2} minH="120px">
-            {combinedHistory.map((item) => (
+          <Text fontSize="sm" color="gray.600">
+            ユーザーの各発言にダミーのベクトル内積計算を適用し、
+            話題分類とスコア化を行った上で平均点を算出しています。
+          </Text>
+          <Stack spacing={2}>
+            {vectorBreakdown.map((item) => (
               <Box
                 key={item.id}
-                flex="1"
-                bg="blue.200"
-                _dark={{ bg: 'blue.500' }}
-                height={`${(item.total / maxScore) * 100}%`}
-                borderRadius="sm"
-                aria-label={`${item.title} スコア ${item.total}`}
-              />
+                borderWidth="1px"
+                borderColor={borderColor}
+                borderRadius="md"
+                p={3}
+                aria-label={`${item.turn} ${item.label} ${item.vectorScore}点`}
+              >
+                <Text fontSize="xs" color="gray.500">
+                  {item.turn}
+                </Text>
+                <HStack justify="space-between" mt={1}>
+                  <Text fontWeight="medium">{item.label}</Text>
+                  <Text fontFamily="mono">{item.vectorScore} pt</Text>
+                </HStack>
+                <CircularProgress
+                  value={item.vectorScore}
+                  max={100}
+                  size="60px"
+                  color="blue.400"
+                  trackColor={progressTrackColor}
+                  thickness="10px"
+                  mt={3}
+                  aria-label={`${item.label} スコア ${item.vectorScore}点`}
+                >
+                  <CircularProgressLabel fontFamily="mono" fontSize="sm">
+                    {item.vectorScore}
+                  </CircularProgressLabel>
+                </CircularProgress>
+              </Box>
             ))}
-          </HStack>
+          </Stack>
+          <Box
+            mt={2}
+          >
+            <Text fontSize="sm">
+              ベクトル平均 :{' '}
+              <Text as="span" fontWeight="bold">
+                {summary.averageVector ? `${summary.averageVector} pt` : '―'}
+              </Text>
+              （話者分類の中心は{vectorBreakdown[0]?.label}領域付近という想定）
+            </Text>
+          </Box>
+          <Box
+            borderWidth="1px"
+            borderColor={borderColor}
+            borderRadius="md"
+            p={3}
+            mt={3}
+          >
+            <Heading size="xs" color="gray.500">
+              会話全体チェック（減点シート）
+            </Heading>
+            <Text fontSize="sm" mt={1}>
+              会話全体では「敬語表現の乱れ」などをモニターし、チェック済みの項目だけ指定点数を減点するダミー挙動です。
+            </Text>
+            <Stack spacing={2} mt={3}>
+              {deductionCandidates.map((item) => (
+                <CheckboxCard
+                  key={item.id}
+                  item={item}
+                  borderColor={borderColor}
+                />
+              ))}
+            </Stack>
+          </Box>
         </Stack>
         <Stack spacing={3}>
           <Heading size="xs" color="gray.500">
@@ -100,5 +211,40 @@ const ProgressDashboard = ({ scores, isVisible }) => {
     </Box>
   );
 };
+
+const CheckboxCard = ({ item, borderColor }) => (
+  <Box
+    as="label"
+    borderWidth="1px"
+    borderColor={borderColor}
+    borderRadius="md"
+    p={3}
+    display="block"
+    bg={item.detected ? 'red.50' : 'gray.50'}
+    _dark={{
+      bg: item.detected ? 'red.900' : 'gray.700'
+    }}
+  >
+    <HStack align="flex-start" spacing={3}>
+      <Checkbox
+        isChecked={item.detected}
+        isReadOnly
+        colorScheme={item.detected ? 'red' : 'green'}
+        mt={1}
+        aria-label={`${item.label} ${item.detected ? '減点あり' : '問題なし'}`}
+        pointerEvents="none"
+      />
+      <Box flex="1">
+        <Text fontWeight="medium">{item.label}</Text>
+        <Text fontSize="xs" color="gray.500">
+          {item.hint}
+        </Text>
+      </Box>
+      <Badge colorScheme={item.detected ? 'red' : 'green'}>
+        {item.detected ? `-${item.deduction}pt` : '減点なし'}
+      </Badge>
+    </HStack>
+  </Box>
+);
 
 export default ProgressDashboard;
