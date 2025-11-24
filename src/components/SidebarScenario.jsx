@@ -67,7 +67,7 @@ const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
       borderRadius="lg"
       overflow="hidden"
       aria-label="シナリオ選択"
-      height="100%"
+      height="100dvh"
       display="flex"
       flexDirection="column"
     >
