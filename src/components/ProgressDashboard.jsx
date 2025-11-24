@@ -1,8 +1,4 @@
 import {
-  Alert,
-  AlertDescription,
-  AlertIcon,
-  AlertTitle,
   Box,
   Heading,
   HStack,
@@ -35,17 +31,6 @@ const mockHistory = [
 const ProgressDashboard = ({ scores, isVisible }) => {
   if (!isVisible) {
     return null;
-    return (
-      <Alert status="info" borderRadius="md" mt={4} variant="subtle">
-        <AlertIcon />
-        <Box>
-          <AlertTitle>採点完了後に表示されます</AlertTitle>
-          <AlertDescription>
-            セッションを終了するとこれまでの推移と比較できます。
-          </AlertDescription>
-        </Box>
-      </Alert>
-    );
   }
 
   const summary = scoringMock.summarize(scores);

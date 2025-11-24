@@ -1,8 +1,4 @@
 import {
-  Alert,
-  AlertDescription,
-  AlertIcon,
-  AlertTitle,
   Box,
   Heading,
   SimpleGrid,
@@ -16,17 +12,6 @@ import scoringMock from '../features/scoringMock.js';
 const ScoreSummary = ({ scores, isVisible }) => {
   if (!isVisible) {
     return null;
-    return (
-      <Alert status="info" borderRadius="md" mt={4} variant="left-accent">
-        <AlertIcon />
-        <Box>
-          <AlertTitle>採点待ち</AlertTitle>
-          <AlertDescription>
-            トレーニング終了後にセッションサマリーが表示されます。
-          </AlertDescription>
-        </Box>
-      </Alert>
-    );
   }
 
   const summary = scoringMock.summarize(scores);
