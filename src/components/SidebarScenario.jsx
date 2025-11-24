@@ -68,6 +68,8 @@ const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
       overflow="hidden"
       aria-label="シナリオ選択"
       height="100dvh"
+      m={0}
+      p={0}
       display="flex"
       flexDirection="column"
     >
@@ -168,7 +170,7 @@ const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
                 </Stack>
               </Stack>
               <Divider />
-              <Stack spacing={2}>
+              <Stack spacing={2} mb={10}>
                 {!started && (
                   <Button colorScheme="blue" onClick={handleStart}>
                     この状況で開始
