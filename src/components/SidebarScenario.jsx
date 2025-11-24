@@ -170,7 +170,7 @@ const SidebarScenario = ({ onClose, onRequestTrainingEnd, canEndTraining }) => {
                 </Stack>
               </Stack>
               <Divider />
-              <Stack spacing={2} mb={10}>
+              <Stack spacing={2} mb={16}>
                 {!started && (
                   <Button colorScheme="blue" onClick={handleStart}>
                     この状況で開始

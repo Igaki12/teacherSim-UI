@@ -112,7 +112,7 @@ const ChatPanel = () => {
         </Box>
       </Box>
 
-      <ChatComposer mb={10} />
+      <ChatComposer mb={16} />
 
       <ScoreSummary scores={scores} isVisible={trainingEnded} />
     </Stack>
