@@ -53,7 +53,7 @@ const ResponsiveOverlays = ({
                 px={0}
                 pt={0}
               >
-                <Box flex="1" overflowY="auto" px={4} py={4} mb={"10vh"}>
+                <Box flex="1" overflowY="auto" px={4} py={4} >
                   {scenarioContent}
                 </Box>
               </DrawerBody>
@@ -87,7 +87,7 @@ const ResponsiveOverlays = ({
                 px={0}
                 pt={0}
               >
-                <Box flex="1" overflowY="auto" px={4} py={4} mb={"10vh"}>
+                <Box flex="1" overflowY="auto" px={4} py={4}>
                   {chatContent}
                 </Box>
               </DrawerBody>

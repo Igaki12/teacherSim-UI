@@ -903,7 +903,7 @@ const VrmStage = () => {
           isDisabled={!modelReady}
           aria-label="モデルを正面ポジションに調整する「正面を向く」"
           alignSelf="stretch"
-          mt={{ base: 0, md: 4 }}
+          mt="4"
           mb="4"
         >
           正面を向く
@@ -936,7 +936,6 @@ const VrmStage = () => {
         inputId="vrm-chat-input"
         display={{ base: 'flex', md: 'none' }}
         w="100%"
-        mb={{ base: '2vh', md: 0 }}
       />
     </Stack>
   );
