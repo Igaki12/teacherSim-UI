@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Stack, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Stack, Text, useColorModeValue } from '@chakra-ui/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AmbientLight,
@@ -63,7 +63,32 @@ const VrmStage = () => {
     current: 0
   });
   const activeExpressionKeyRef = useRef(null);
-  const started = useAppStore((state) => state.started);
+  const assistantBubbleAnimationIdRef = useRef(null);
+  const assistantBubbleStateRef = useRef({
+    active: false,
+    mouthPhase: 0,
+    currentWeight: 0,
+    blink: { lastBlink: 0, blinkStart: 0, blinking: false },
+    nod: {
+      lastUpdate: 0,
+      elapsed: 0,
+      nextChange: 0,
+      target: 0,
+      current: 0
+    },
+    originalPose: null,
+    wasSpeechMotionActive: false
+  });
+  const assistantBubbleTimeoutRef = useRef({ hide: null, clear: null });
+  const assistantBubbleRafRef = useRef(null);
+  const lastAssistantMessageIdRef = useRef(null);
+  const [assistantBubbleText, setAssistantBubbleText] = useState('');
+  const [assistantBubbleKey, setAssistantBubbleKey] = useState(0);
+  const [isAssistantBubbleVisible, setIsAssistantBubbleVisible] = useState(false);
+  const { started, messages } = useAppStore((state) => ({
+    started: state.started,
+    messages: state.messages
+  }));
 
   useEffect(() => {
     const container = containerRef.current;
@@ -450,18 +475,20 @@ const VrmStage = () => {
         const manager = vrm.expressionManager;
         manager.setValue('blink', 0);
         manager.setValue('grip', 0);
-        if (activeExpressionKeyRef.current) {
-          EXPRESSION_PRESETS.forEach(({ key }) => {
-            manager.setValue(
-              key,
-              key === activeExpressionKeyRef.current ? 0.5 : 0
-            );
-          });
-        } else {
-          EXPRESSION_PRESETS.forEach(({ key }) => {
-            manager.setValue(key, 0);
-          });
-        }
+        const bubbleState = assistantBubbleStateRef.current;
+        const bubbleWeight = bubbleState.active ? bubbleState.currentWeight : 0;
+        EXPRESSION_PRESETS.forEach(({ key }) => {
+          if (key === 'surprised') {
+            const selectedWeight = activeExpressionKeyRef.current === 'surprised' ? 0.5 : 0;
+            manager.setValue(key, Math.max(bubbleWeight, selectedWeight));
+          } else {
+            const weight =
+              activeExpressionKeyRef.current && key === activeExpressionKeyRef.current
+                ? 0.5
+                : 0;
+            manager.setValue(key, weight);
+          }
+        });
         manager.update();
       }
 
@@ -488,6 +515,235 @@ const VrmStage = () => {
       }
     },
     [isSpeechMotionActive, runExpressionLoop]
+  );
+
+  const clearAssistantBubbleTimers = useCallback(() => {
+    const timers = assistantBubbleTimeoutRef.current;
+    if (timers.hide) {
+      clearTimeout(timers.hide);
+      timers.hide = null;
+    }
+    if (timers.clear) {
+      clearTimeout(timers.clear);
+      timers.clear = null;
+    }
+  }, []);
+
+  const stopAssistantBubbleMotion = useCallback(() => {
+    const state = assistantBubbleStateRef.current;
+    state.active = false;
+    if (assistantBubbleAnimationIdRef.current !== null) {
+      cancelAnimationFrame(assistantBubbleAnimationIdRef.current);
+      assistantBubbleAnimationIdRef.current = null;
+    }
+    const vrm = vrmRef.current;
+    if (vrm?.humanoid && state.originalPose && !speechMotionActiveRef.current) {
+      Object.entries(state.originalPose).forEach(([boneName, pose]) => {
+        const bone = vrm.humanoid.getNormalizedBoneNode(boneName);
+        if (bone && pose?.rotation) {
+          bone.rotation.copy(pose.rotation);
+        }
+      });
+      vrm.humanoid.update();
+    }
+    state.originalPose = null;
+    state.currentWeight = 0;
+    state.blink = { lastBlink: 0, blinkStart: 0, blinking: false };
+    state.nod = {
+      lastUpdate: 0,
+      elapsed: 0,
+      nextChange: 0,
+      target: 0,
+      current: 0
+    };
+    state.wasSpeechMotionActive = false;
+  }, []);
+
+  const hideAssistantBubble = useCallback(() => {
+    const timers = assistantBubbleTimeoutRef.current;
+    if (timers.hide) {
+      clearTimeout(timers.hide);
+      timers.hide = null;
+    }
+    setIsAssistantBubbleVisible(false);
+    if (timers.clear) {
+      clearTimeout(timers.clear);
+    }
+    timers.clear = setTimeout(() => {
+      setAssistantBubbleText('');
+      stopAssistantBubbleMotion();
+      if (!speechMotionActiveRef.current && activeExpressionKeyRef.current) {
+        runExpressionLoop();
+      }
+      timers.clear = null;
+    }, 350);
+  }, [runExpressionLoop, stopAssistantBubbleMotion]);
+
+  const startAssistantBubbleMotion = useCallback(() => {
+    const vrm = vrmRef.current;
+    if (!vrm) return;
+
+    stopExpressionMotion({ silent: true, preserveSelection: true });
+
+    const state = assistantBubbleStateRef.current;
+    state.active = true;
+    state.mouthPhase = Math.random() * Math.PI * 2;
+    const now = performance.now();
+    state.blink = { lastBlink: now, blinkStart: 0, blinking: false };
+    state.nod = {
+      lastUpdate: now,
+      elapsed: 0,
+      nextChange: 0.6 + Math.random() * 0.9,
+      target: 0,
+      current: 0
+    };
+    state.wasSpeechMotionActive = speechMotionActiveRef.current;
+
+    if (!speechMotionActiveRef.current && vrm.humanoid) {
+      const neck = vrm.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
+      state.originalPose = neck
+        ? {
+            [VRMHumanBoneName.Neck]: { rotation: neck.rotation.clone() }
+          }
+        : null;
+    } else {
+      state.originalPose = null;
+    }
+
+    const animate = (timestamp) => {
+      const vrmInstance = vrmRef.current;
+      if (!state.active || !vrmInstance) {
+        assistantBubbleAnimationIdRef.current = null;
+        return;
+      }
+
+      const t = timestamp / 1000;
+      state.currentWeight = 0.3 + 0.3 * Math.sin(t * 6 + state.mouthPhase);
+      if (state.currentWeight < 0) {
+        state.currentWeight = 0;
+      }
+
+      if (speechMotionActiveRef.current) {
+        state.wasSpeechMotionActive = true;
+      } else {
+        if (state.wasSpeechMotionActive) {
+          state.wasSpeechMotionActive = false;
+          if (vrmInstance.humanoid) {
+            const neck = vrmInstance.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
+            state.originalPose = neck
+              ? {
+                  [VRMHumanBoneName.Neck]: { rotation: neck.rotation.clone() }
+                }
+              : null;
+          }
+        }
+
+        if (vrmInstance.humanoid && state.originalPose) {
+          const neckBone = vrmInstance.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Neck);
+          if (neckBone) {
+            const nodState = state.nod;
+            const deltaSeconds = nodState.lastUpdate
+              ? (timestamp - nodState.lastUpdate) / 1000
+              : 0;
+            nodState.lastUpdate = timestamp;
+            nodState.elapsed += deltaSeconds;
+            const smoothing = Math.min(deltaSeconds * 5, 1);
+            nodState.current += (nodState.target - nodState.current) * smoothing;
+            if (nodState.elapsed >= nodState.nextChange) {
+              nodState.elapsed = 0;
+              nodState.nextChange = 0.6 + Math.random() * 0.9;
+              const direction = Math.random() > 0.5 ? 1 : -1;
+              const magnitude = MathUtils.degToRad(0.7 + Math.random() * 1.2);
+              nodState.target = direction * magnitude;
+            }
+            const baseRotation = state.originalPose[VRMHumanBoneName.Neck]?.rotation;
+            if (baseRotation) {
+              neckBone.rotation.set(
+                baseRotation.x + nodState.current,
+                baseRotation.y,
+                baseRotation.z
+              );
+              vrmInstance.humanoid.update();
+            }
+          }
+        }
+
+        const manager = vrmInstance.expressionManager;
+        if (manager) {
+          const blinkState = state.blink;
+          if (!blinkState.blinking && timestamp - blinkState.lastBlink >= 3000) {
+            blinkState.blinking = true;
+            blinkState.blinkStart = timestamp;
+          }
+          let blinkWeight = 0;
+          if (blinkState.blinking) {
+            const duration = 160;
+            const progress = Math.min((timestamp - blinkState.blinkStart) / duration, 1);
+            blinkWeight = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+            if (progress >= 1) {
+              blinkState.blinking = false;
+              blinkState.lastBlink = timestamp;
+              blinkWeight = 0;
+            }
+          }
+
+          manager.setValue('blink', blinkWeight);
+          const selectedKey = activeExpressionKeyRef.current;
+          EXPRESSION_PRESETS.forEach(({ key }) => {
+            if (key === 'surprised') {
+              const selectedWeight = selectedKey === 'surprised' ? 0.5 : 0;
+              manager.setValue(key, Math.max(state.currentWeight, selectedWeight));
+            } else {
+              manager.setValue(key, key === selectedKey ? 0.5 : 0);
+            }
+          });
+          manager.update();
+        }
+      }
+
+      assistantBubbleAnimationIdRef.current = requestAnimationFrame(animate);
+    };
+
+    if (assistantBubbleAnimationIdRef.current !== null) {
+      cancelAnimationFrame(assistantBubbleAnimationIdRef.current);
+    }
+    assistantBubbleAnimationIdRef.current = requestAnimationFrame(animate);
+  }, [stopExpressionMotion]);
+
+  const triggerAssistantBubble = useCallback(
+    (text) => {
+      const trimmed = (text || '').trim();
+      if (!trimmed) return;
+
+      clearAssistantBubbleTimers();
+      stopAssistantBubbleMotion();
+
+      const limit = 90;
+      const truncated = trimmed.length > limit ? `${trimmed.slice(0, limit)}...` : trimmed;
+      if (assistantBubbleRafRef.current !== null) {
+        cancelAnimationFrame(assistantBubbleRafRef.current);
+        assistantBubbleRafRef.current = null;
+      }
+      setIsAssistantBubbleVisible(false);
+      setAssistantBubbleText(truncated);
+      setAssistantBubbleKey((prev) => prev + 1);
+      assistantBubbleRafRef.current = requestAnimationFrame(() => {
+        setIsAssistantBubbleVisible(true);
+        assistantBubbleRafRef.current = null;
+      });
+      startAssistantBubbleMotion();
+
+      const timers = assistantBubbleTimeoutRef.current;
+      timers.hide = setTimeout(() => {
+        hideAssistantBubble();
+      }, 5000);
+    },
+    [
+      clearAssistantBubbleTimers,
+      hideAssistantBubble,
+      startAssistantBubbleMotion,
+      stopAssistantBubbleMotion
+    ]
   );
 
   const startSpeechMotion = useCallback(() => {
@@ -670,11 +926,18 @@ const VrmStage = () => {
         const gripWeight = 0.2 + Math.abs(Math.sin(swayPhase * 1.1)) * 0.1;
         expressionManager.setValue('grip', gripWeight);
         const selectedExpressionKey = activeExpressionKeyRef.current || 'angry';
+        const bubbleState = assistantBubbleStateRef.current;
+        const bubbleWeight = bubbleState.active ? bubbleState.currentWeight : 0;
         EXPRESSION_PRESETS.forEach(({ key }) => {
-          expressionManager.setValue(
-            key,
-            key === selectedExpressionKey ? 0.5 : 0
-          );
+          if (key === 'surprised') {
+            const selectedWeight = selectedExpressionKey === 'surprised' ? 0.5 : 0;
+            expressionManager.setValue(key, Math.max(bubbleWeight, selectedWeight));
+          } else {
+            expressionManager.setValue(
+              key,
+              key === selectedExpressionKey ? 0.5 : 0
+            );
+          }
         });
 
         expressionManager.update();
@@ -824,6 +1087,39 @@ const VrmStage = () => {
     }
   }, [started, modelReady, applyFrontPose]);
 
+  useEffect(() => {
+    if (!messages.length) return;
+    const latest = messages[messages.length - 1];
+    if (!latest || latest.role === 'user') return;
+    if (lastAssistantMessageIdRef.current === latest.id) return;
+    lastAssistantMessageIdRef.current = latest.id;
+    triggerAssistantBubble(latest.text || '');
+  }, [messages, triggerAssistantBubble]);
+
+  useEffect(
+    () => () => {
+      clearAssistantBubbleTimers();
+      stopAssistantBubbleMotion();
+      if (assistantBubbleRafRef.current !== null) {
+        cancelAnimationFrame(assistantBubbleRafRef.current);
+        assistantBubbleRafRef.current = null;
+      }
+    },
+    [clearAssistantBubbleTimers, stopAssistantBubbleMotion]
+  );
+
+  const assistantBubbleBg = useColorModeValue('whiteAlpha.900', 'blackAlpha.700');
+  const assistantBubbleBorder = useColorModeValue('blue.200', 'blue.500');
+  const assistantBubbleTextColor = useColorModeValue('gray.700', 'gray.100');
+  const assistantBubbleLabelBg = useColorModeValue('blue.500', 'blue.300');
+  const assistantBubbleLabelColor = useColorModeValue('white', 'gray.900');
+  const assistantBubbleTransform =
+    isAssistantBubbleVisible && assistantBubbleText
+      ? 'translate(-50%, 0)'
+      : 'translate(-50%, 16px)';
+  const assistantBubblePointerOpacity =
+    isAssistantBubbleVisible && assistantBubbleText ? 1 : 0;
+
   return (
     <Stack spacing={4} height="100%" role="region" aria-label="VRM ステージ">
       <Box position="relative" borderRadius="lg" overflow="hidden" flex="1">
@@ -839,6 +1135,78 @@ const VrmStage = () => {
         <Badge position="absolute" top={4} right={4} colorScheme="purple">
           FPS: {fps}
         </Badge>
+        <Box
+          key={assistantBubbleKey}
+          position="absolute"
+          left="50%"
+          bottom={{ base: 3, md: 6 }}
+          px={3}
+          py={2}
+          borderRadius="lg"
+          boxShadow="lg"
+          bg={assistantBubbleBg}
+          borderWidth="1px"
+          borderColor={assistantBubbleBorder}
+          opacity={isAssistantBubbleVisible && assistantBubbleText ? 1 : 0}
+          transform={assistantBubbleTransform}
+          transition="opacity 0.35s ease, transform 0.35s ease"
+          pointerEvents="none"
+          zIndex={2}
+          maxW={{ base: '88%', md: '70%' }}
+          visibility={assistantBubbleText ? 'visible' : 'hidden'}
+          fontSize="xs"
+          color={assistantBubbleTextColor}
+          textAlign="center"
+          _before={{
+            content: "''",
+            position: 'absolute',
+            top: '-19px',
+            left: '70%',
+            width: '2px',
+            height: '19px',
+            bg: assistantBubbleBorder,
+            borderRadius: 'full',
+            transform: 'translateX(-50%) rotate(-14deg)',
+            transformOrigin: 'bottom center',
+            opacity: assistantBubblePointerOpacity,
+            transition: 'opacity 0.35s ease',
+            boxShadow: '0 0 4px rgba(0,0,0,0.15)'
+          }}
+          _after={{
+            content: "''",
+            position: 'absolute',
+            top: '-14px',
+            left: '70%',
+            width: '1px',
+            height: '14px',
+            bg: assistantBubbleBg,
+            borderRadius: 'full',
+            transform: 'translateX(-50%) rotate(-14deg)',
+            transformOrigin: 'bottom center',
+            opacity: assistantBubblePointerOpacity,
+            transition: 'opacity 0.35s ease'
+          }}
+        >
+          <Stack spacing={1} align="center">
+            <Box
+              px={2.5}
+              py={0.5}
+              borderRadius="full"
+              bg={assistantBubbleLabelBg}
+              color={assistantBubbleLabelColor}
+              fontSize="xs"
+              fontWeight="semibold"
+              boxShadow="sm"
+              textTransform="none"
+              letterSpacing="0.02em"
+            >
+              ロールプレイ相手
+            </Box>
+            <Text noOfLines={3} lineHeight="1.3">
+              {assistantBubbleText}
+            </Text>
+          </Stack>
+        </Box>
       </Box>
       <Stack spacing={0}>
         {!modelReady && (

@@ -58,7 +58,7 @@ const ChatPanel = () => {
         >
           <Text fontWeight="medium">チャット履歴</Text>
           <Text fontSize="xs" color="gray.500" display={{ base: 'none', md: 'block' }}>
-            Enter で送信、Shift+Enter で改行。新着メッセージは自動で読み上げ領域に追加されます。
+            Enter で送信。新着メッセージは自動で読み上げ領域に追加されます。
           </Text>
         </Box>
         <Box
@@ -98,7 +98,6 @@ const ChatPanel = () => {
                         {new Date(message.timestamp).toLocaleTimeString()}
                       </Badge>
                     </Box>
-                    {/* <ScorePerUtterance score={scoreMap.get(message.id)} /> */}
                   </Stack>
                 </Box>
               );
