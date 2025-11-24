@@ -1152,7 +1152,7 @@ const VrmStage = () => {
           transition="opacity 0.35s ease, transform 0.35s ease"
           pointerEvents="none"
           zIndex={2}
-          maxW={{ base: '88%', md: '70%' }}
+          maxW="95%"
           visibility={assistantBubbleText ? 'visible' : 'hidden'}
           fontSize="xs"
           color={assistantBubbleTextColor}
@@ -1162,7 +1162,7 @@ const VrmStage = () => {
             position: 'absolute',
             top: '-19px',
             left: '70%',
-            width: '2px',
+            width: '4px',
             height: '19px',
             bg: assistantBubbleBorder,
             borderRadius: 'full',
@@ -1175,10 +1175,10 @@ const VrmStage = () => {
           _after={{
             content: "''",
             position: 'absolute',
-            top: '-14px',
+            top: '-9px',
             left: '70%',
-            width: '1px',
-            height: '14px',
+            width: '2px',
+            height: '9px',
             bg: assistantBubbleBg,
             borderRadius: 'full',
             transform: 'translateX(-50%) rotate(-14deg)',
