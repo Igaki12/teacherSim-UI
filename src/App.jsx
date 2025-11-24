@@ -74,7 +74,7 @@ const App = () => {
   return (
     <Box
       bg={mainBg}
-      h="100vh"
+      h="100dvh"
       m={0}
       p={0}
       display="flex"
