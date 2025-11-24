@@ -2,7 +2,6 @@ import {
   Badge,
   Box,
   Checkbox,
-  Code,
   CircularProgress,
   CircularProgressLabel,
   Heading,
@@ -33,7 +32,21 @@ const mockHistory = [
   }
 ];
 
-const ProgressDashboard = ({ scores, isVisible }) => {
+const vectorLabels = ['状況を整理するための発言', '意図の確認', '共感を狙った発言', '新しい提案'];
+const classificationRules = [
+  { label: '状況を整理するための発言', pattern: /状況|様子|クラス|教室|トラブル/ },
+  { label: '意図の確認', pattern: /どういう|意図|目的|確認|でしょう/ },
+  { label: '共感を狙った発言', pattern: /心配|お気持ち|大変|申し訳|寄り添い|共感/ },
+  { label: '新しい提案', pattern: /提案|プラン|計画|対応策|できます|いたします/ }
+];
+
+const pickVectorLabel = (text, fallbackLabel) => {
+  if (!text) return fallbackLabel;
+  const rule = classificationRules.find((item) => item.pattern.test(text));
+  return rule ? rule.label : fallbackLabel;
+};
+
+const ProgressDashboard = ({ scores, messages, isVisible }) => {
   if (!isVisible) {
     return null;
   }
@@ -43,50 +56,59 @@ const ProgressDashboard = ({ scores, isVisible }) => {
     ...mockHistory,
     { id: '今回', title: '今回のセッション', total: summary.averageTotal }
   ];
-  const filteredScores = scores.filter(
-    (score) => score && typeof score.vectorScore === 'number'
-  );
-  const vectorLabels = ['状況整理', '意図確認', '共感応答', '提案整理'];
-  const recentVectorScores = filteredScores.slice(-4);
-  const hasRecentScores = recentVectorScores.length > 0;
-  const vectorBreakdown =
-    (hasRecentScores ? recentVectorScores : new Array(4).fill(null)).map(
-      (score, index, array) => {
-        const turnIndex = hasRecentScores
-          ? filteredScores.length - array.length + index + 1
-          : index + 1;
-        const vectorScore = hasRecentScores ? score.vectorScore : 70 + index * 4;
-        return {
-          id: score?.messageId || `dummy-${index}`,
-          label: vectorLabels[index % vectorLabels.length],
-          turn: hasRecentScores
-            ? `messages user true #${turnIndex}`
-            : `ダミー発言 #${turnIndex}`,
-          vectorScore
-        };
-      }
-    );
+  const scoreMap = scores.reduce((map, score) => {
+    map.set(score.messageId, score);
+    return map;
+  }, new Map());
+  const userMessages = (messages || []).filter((message) => message.role === 'user');
+  const recentUserMessages = userMessages.slice(-4);
+  const hasRealUserScores = recentUserMessages.length > 0;
+  const fallbackVectorBreakdown = new Array(4).fill(null).map((_, index) => ({
+    id: `dummy-${index}`,
+    label: vectorLabels[index % vectorLabels.length],
+    turn: `ダミー発言 #${index + 1}`,
+    vectorScore: 70 + index * 4,
+    text: '最近の会話データがないため仮の指標を表示しています。',
+    timestamp: null
+  }));
+  const vectorBreakdown = hasRealUserScores
+    ? recentUserMessages.map((message, index, array) => {
+      const fallbackLabel = vectorLabels[index % vectorLabels.length];
+      const label = pickVectorLabel(message.text, fallbackLabel);
+      const turnIndex = userMessages.length - array.length + index + 1;
+      const vectorScore =
+        scoreMap.get(message.id)?.vectorScore ?? 72 + (index % 4) * 5;
+      return {
+        id: message.id,
+        label,
+        turn: `送信したユーザーメッセージ #${turnIndex}`,
+        vectorScore,
+        text: message.text,
+        timestamp: message.timestamp
+      };
+    })
+    : fallbackVectorBreakdown;
   const deductionCandidates = [
     {
       id: 'keigo',
       label: '敬語表現の乱れ',
       hint: '語尾がカジュアルに崩れていないかチェック',
       deduction: 5,
-      detected: hasRecentScores ? summary.averageChecklist < 75 : true
+      detected: hasRealUserScores ? summary.averageChecklist < 75 : true
     },
     {
       id: 'apology',
       label: '謝罪/共感の不足',
       hint: '相手感情の言及やクッション言葉が薄い場合に減点',
       deduction: 3,
-      detected: hasRecentScores ? summary.averageVector < 75 : false
+      detected: hasRealUserScores ? summary.averageVector < 75 : false
     },
     {
       id: 'followup',
       label: '確認質問の不足',
       hint: 'Yes/No 以外の深掘りが無いと判断された箇所',
       deduction: 2,
-      detected: hasRecentScores ? summary.averageTotal < 80 : false
+      detected: hasRealUserScores ? summary.averageTotal < 80 : false
     }
   ];
   const maxScore = Math.max(...combinedHistory.map((item) => item.total), 1);
@@ -110,6 +132,7 @@ const ProgressDashboard = ({ scores, isVisible }) => {
           <Stack spacing={2}>
             {vectorBreakdown.map((item) => (
               <Box
+              bgColor={useColorModeValue('white', 'gray.900')}
                 key={item.id}
                 borderWidth="1px"
                 borderColor={borderColor}
@@ -121,23 +144,33 @@ const ProgressDashboard = ({ scores, isVisible }) => {
                   {item.turn}
                 </Text>
                 <HStack justify="space-between" mt={1}>
-                  <Text fontWeight="medium">{item.label}</Text>
+                  <Text fontWeight="medium">分類：{item.label}</Text>
                   <Text fontFamily="mono">{item.vectorScore} pt</Text>
                 </HStack>
-                <CircularProgress
-                  value={item.vectorScore}
-                  max={100}
-                  size="60px"
-                  color="blue.400"
-                  trackColor={progressTrackColor}
-                  thickness="10px"
-                  mt={3}
-                  aria-label={`${item.label} スコア ${item.vectorScore}点`}
-                >
-                  <CircularProgressLabel fontFamily="mono" fontSize="sm">
-                    {item.vectorScore}
-                  </CircularProgressLabel>
-                </CircularProgress>
+                <HStack spacing={4} align="flex-start" mt={3}>
+                  <Stack spacing={1} flex="1">
+                    <Text fontSize="sm" noOfLines={3}>
+                      {item.text || '―'}
+                    </Text>
+                    <Text fontSize="xs" color="gray.500">
+                      {item.timestamp ? new Date(item.timestamp).toLocaleString() : 'タイムスタンプなし'}
+                    </Text>
+                  </Stack>
+                  <CircularProgress
+                    value={item.vectorScore}
+                    max={100}
+                    size="64px"
+                    color="blue.400"
+                    trackColor={progressTrackColor}
+                    thickness="10px"
+                    aria-label={`${item.label} スコア ${item.vectorScore}点`}
+                  >
+                    <CircularProgressLabel fontFamily="mono" fontSize="sm">
+                      {item.vectorScore}
+                    </CircularProgressLabel>
+                  </CircularProgress>
+
+                </HStack>
               </Box>
             ))}
           </Stack>
@@ -183,6 +216,7 @@ const ProgressDashboard = ({ scores, isVisible }) => {
           <Stack spacing={3}>
             {combinedHistory.map((item) => (
               <Box
+              bgColor={useColorModeValue('white', 'gray.900')}
                 key={item.id}
                 borderWidth="1px"
                 borderColor={borderColor}

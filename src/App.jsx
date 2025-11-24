@@ -38,13 +38,15 @@ const App = () => {
     started,
     trainingEnded,
     endTraining,
-    scores
+    scores,
+    messages
   } = useAppStore((state) => ({
     isAuthenticated: state.isAuthenticated,
     started: state.started,
     trainingEnded: state.trainingEnded,
     endTraining: state.endTraining,
-    scores: state.scores
+    scores: state.scores,
+    messages: state.messages
   }));
 
   const scenarioDrawer = useDisclosure();
@@ -73,6 +75,8 @@ const App = () => {
     <Box
       bg={mainBg}
       h="100vh"
+      m={0}
+      p={0}
       display="flex"
       flexDirection="column"
       overflow="hidden"
@@ -148,7 +152,11 @@ const App = () => {
                 </Grid>
               ) : (
                 <Box flex="1" overflowY="auto">
-                  <ProgressDashboard scores={scores} isVisible={trainingEnded} />
+                  <ProgressDashboard
+                    scores={scores}
+                    messages={messages}
+                    isVisible={trainingEnded}
+                  />
                 </Box>
               )}
             </Box>

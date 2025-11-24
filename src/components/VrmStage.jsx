@@ -844,23 +844,23 @@ const VrmStage = () => {
             position: 'absolute',
             top: '-19px',
             left: '70%',
-            width: '4px',
-            height: '19px',
+            width: '8px',
+            height: '23px',
             bg: assistantBubbleBorder,
             borderRadius: 'full',
             transform: 'translateX(-50%) rotate(-14deg)',
             transformOrigin: 'bottom center',
             opacity: assistantBubblePointerOpacity,
             transition: 'opacity 0.35s ease',
-            boxShadow: '0 0 4px rgba(0,0,0,0.15)'
+            // boxShadow: '0 0 4px rgba(0,0,0,0.15)'
           }}
           _after={{
             content: "''",
             position: 'absolute',
             top: '-14px',
             left: '70%',
-            width: '2px',
-            height: '14px',
+            width: '6px',
+            height: '18px',
             bg: assistantBubbleBg,
             borderRadius: 'full',
             transform: 'translateX(-50%) rotate(-14deg)',
