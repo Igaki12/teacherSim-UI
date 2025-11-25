@@ -58,6 +58,12 @@ const App = () => {
   const canEndTraining = started && !trainingEnded;
 
   const handleConfirmEnd = () => {
+    if (scenarioDrawer.isOpen) {
+      scenarioDrawer.onClose();
+    }
+    if (chatDrawer.isOpen) {
+      chatDrawer.onClose();
+    }
     endTraining();
     endDialog.onClose();
   };

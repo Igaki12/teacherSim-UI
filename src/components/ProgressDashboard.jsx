@@ -12,6 +12,8 @@ import {
   Text,
   useColorModeValue
 } from '@chakra-ui/react';
+import { keyframes } from '@emotion/react';
+import { CheckIcon } from '@chakra-ui/icons';
 import scoringMock from '../features/scoringMock.js';
 
 const mockHistory = [
@@ -114,9 +116,49 @@ const ProgressDashboard = ({ scores, messages, isVisible }) => {
   const maxScore = Math.max(...combinedHistory.map((item) => item.total), 1);
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const progressTrackColor = useColorModeValue('blue.50', 'blue.900');
+  const highlightBg = useColorModeValue('green.50', 'green.900');
+  const highlightBorder = useColorModeValue('green.200', 'green.600');
+  const highlightText = useColorModeValue('gray.700', 'gray.100');
+  const celebrationPulse = keyframes`
+    0% { transform: scale(0.9); opacity: 0.7;}
+    50% { transform: scale(1.05); opacity: 1;}
+    100% { transform: scale(0.9); opacity: 0.7; }
+  `;
 
   return (
     <Box mt={4} borderWidth="1px" borderRadius="md" p={4}>
+      <Box
+        borderWidth="1px"
+        borderColor={highlightBorder}
+        borderRadius="lg"
+        p={{ base: 4, md: 5 }}
+        mb={5}
+        bg={highlightBg}
+        display="flex"
+        flexDir={{ base: 'column', sm: 'row' }}
+        alignItems="center"
+        justifyContent="center"
+        textAlign={{ base: 'center', sm: 'left' }}
+        role="status"
+        aria-live="polite"
+      >
+        <Box
+          as={CheckIcon}
+          boxSize={{ base: 14, sm: 16 }}
+          color="green.500"
+          animation={`${celebrationPulse} 2.4s ease-in-out infinite`}
+          mb={{ base: 3, sm: 0 }}
+          mr={{ sm: 4 }}
+        />
+        <Stack spacing={1}>
+          <Text fontSize={{ base: 'xl', md: '2xl' }} fontWeight="bold" color={highlightText}>
+            お疲れ様でした！
+          </Text>
+          <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.200')}>
+            ひと区切りの成果を振り返り、次のロールプレイにつなげましょう。
+          </Text>
+        </Stack>
+      </Box>
       <Heading size="sm" mb={3}>
         スコア推移ダッシュボード（ダミー）
       </Heading>
