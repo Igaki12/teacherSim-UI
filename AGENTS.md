@@ -52,6 +52,8 @@ VrmStage.jsx
 	•	VRM読込：public/models/sample.vrm（`cp LMS_Sample(animation).vrm public/models/sample.vrm` で配置）をデフォルトで利用。
 	•	OrbitControls、表情プリセット、擬似リップシンク（スライダで A/I/U/E/O 形状）。
 	•	FPS/状態インジケータ小表示。
+	•	Canvas は完全透明化し、背後に `public/vrm-bg-imgs/` の背景画像（縦/横/教室の3種）を同じ縦幅で重ねる。
+	•	右下に `RepeatIcon` のボタンを重ね、3枚の背景を順番に切り替えられるようにする（バッジ類とはレイヤーをずらす）。
 
 ChatPanel.jsx
 	•	履歴（ユーザー/キャラ、時刻、ScorePerUtteranceを行ごとに下添え）。
