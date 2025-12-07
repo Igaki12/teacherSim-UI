@@ -1,4 +1,15 @@
-import { Badge, Box, Button, Stack, Text, useColorModeValue } from '@chakra-ui/react';
+import {
+  Badge,
+  Box,
+  Button,
+  IconButton,
+  Image,
+  Stack,
+  Text,
+  useBreakpointValue,
+  useColorModeValue
+} from '@chakra-ui/react';
+import { RepeatIcon } from '@chakra-ui/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AmbientLight,
@@ -24,6 +35,35 @@ const EXPRESSION_PRESETS = [
   { key: 'sad', label: '哀', description: '哀（サッド）' },
   { key: 'relaxed', label: '楽', description: '楽（リラックス）' },
   { key: 'surprised', label: '驚', description: '驚（サプライズ）' }
+];
+const BACKGROUND_PRESETS = [
+  {
+    key: 'entrance-portrait',
+    label: '校門（縦）',
+    sources: {
+      base: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01.png`,
+      md: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01-wide.png`,
+      lg: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01-wide.png`
+    }
+  },
+  {
+    key: 'entrance-wide',
+    label: '校門（横）',
+    sources: {
+      base: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01-wide.png`,
+      md: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01-wide.png`,
+      lg: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01-wide.png`
+    }
+  },
+  {
+    key: 'classroom',
+    label: '教室',
+    sources: {
+      base: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-classroom-01-wide.png`,
+      md: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-classroom-01-wide.png`,
+      lg: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-classroom-01-wide.png`
+    }
+  }
 ];
 
 const VrmStage = () => {
@@ -71,6 +111,7 @@ const VrmStage = () => {
   const [assistantBubbleText, setAssistantBubbleText] = useState('');
   const [assistantBubbleKey, setAssistantBubbleKey] = useState(0);
   const [isAssistantBubbleVisible, setIsAssistantBubbleVisible] = useState(false);
+  const [backgroundIndex, setBackgroundIndex] = useState(0);
   const { started, messages } = useAppStore((state) => ({
     started: state.started,
     messages: state.messages
@@ -81,7 +122,7 @@ const VrmStage = () => {
     if (!container) return undefined;
 
     const scene = new Scene();
-    scene.background = new Color('#f5f6fb');
+    scene.background = null;
 
     const camera = new PerspectiveCamera(
       35,
@@ -98,6 +139,7 @@ const VrmStage = () => {
     });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setClearColor(new Color(0x000000), 0);
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -801,15 +843,36 @@ const VrmStage = () => {
       : 'translate(-50%, 16px)';
   const assistantBubblePointerOpacity =
     isAssistantBubbleVisible && assistantBubbleText ? 1 : 0;
+  const selectedBackground =
+    BACKGROUND_PRESETS[backgroundIndex % BACKGROUND_PRESETS.length];
+  const backgroundSrc = useBreakpointValue(selectedBackground.sources);
+  const resolvedBackgroundSrc = backgroundSrc || selectedBackground.sources.base;
 
   return (
     <Stack spacing={4} height="100%" role="region" aria-label="VRM ステージ">
       <Box position="relative" borderRadius="lg" overflow="hidden" flex="1">
+        <Box position="absolute" inset="0" zIndex={0} pointerEvents="none">
+          <Image
+            src={resolvedBackgroundSrc}
+            alt="ロールプレイの舞台となる学校の背景"
+            width="100%"
+            height="100%"
+            objectFit="cover"
+          />
+          <Box
+            position="absolute"
+            inset="0"
+            bgGradient="linear(to-b, blackAlpha.400 0%, blackAlpha.100 40%, blackAlpha.500 100%)"
+          />
+        </Box>
         <Box
           ref={containerRef}
           height="100%"
           minH="320px"
           aria-label="3D モデルビューア"
+          position="relative"
+          zIndex={1}
+          background="transparent"
         />
         <Badge position="absolute" top={4} left={4} colorScheme="blue">
           {status}
@@ -817,6 +880,23 @@ const VrmStage = () => {
         <Badge position="absolute" top={4} right={4} colorScheme="purple">
           FPS: {fps}
         </Badge>
+        <IconButton
+          icon={<RepeatIcon />}
+          aria-label={`背景を切り替える（現在: ${selectedBackground.label}）`}
+          size="sm"
+          position="absolute"
+          bottom={4}
+          right={4}
+          colorScheme="blackAlpha"
+          variant="solid"
+          bg="blackAlpha.600"
+          _hover={{ bg: 'blackAlpha.700' }}
+          _active={{ bg: 'blackAlpha.800' }}
+          zIndex={3}
+          onClick={() =>
+            setBackgroundIndex((prev) => (prev + 1) % BACKGROUND_PRESETS.length)
+          }
+        />
         <Box
           key={assistantBubbleKey}
           position="absolute"
