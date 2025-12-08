@@ -38,12 +38,12 @@ const EXPRESSION_PRESETS = [
 ];
 const BACKGROUND_PRESETS = [
   {
-    key: 'entrance-portrait',
-    label: '校門（縦）',
+    key: 'playground',
+    label: '運動会グラウンド',
     sources: {
-      base: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01.png`,
-      md: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01-wide.png`,
-      lg: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-entrance-01-wide.png`
+      base: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-playground-01-wide.png`,
+      md: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-playground-01-wide.png`,
+      lg: `${import.meta.env.BASE_URL}vrm-bg-imgs/school-playground-01-wide.png`
     }
   },
   {

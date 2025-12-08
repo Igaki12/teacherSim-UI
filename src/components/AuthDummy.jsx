@@ -39,12 +39,12 @@ const AuthDummy = ({ onAfterLogin }) => {
   const handleLogin = (event) => {
     event.preventDefault();
     if (!email.trim() || !password.trim()) {
-      setStatus('メールアドレスとパスワードを入力してください。');
+      setStatus('メールアドレスとパスワードを入力してください');
       return;
     }
     const nextName = name.trim() || email.trim() || 'ゲスト';
     login(nextName);
-    setStatus(`${nextName} としてログインしました。`);
+    setStatus(`${nextName} としてログインしました`);
     setEmail('');
     setPassword('');
     if (typeof onAfterLogin === 'function') {
@@ -57,7 +57,7 @@ const AuthDummy = ({ onAfterLogin }) => {
     setName('');
     setEmail('');
     setPassword('');
-    setStatus('ログアウトしました。');
+    setStatus('ログアウトしました');
   };
 
   const handleForgotPassword = () => {
@@ -78,7 +78,7 @@ const AuthDummy = ({ onAfterLogin }) => {
         aria-label="認証ダミーエリア"
         maxH={{ base: '70vh', md: 'none' }}
         overflowY="auto"
-        pr={{ base: 2, md: 0 }}
+        pr={0}
       >
         <Card bg={cardBg} shadow="sm" borderWidth="1px">
           <CardBody>
@@ -164,12 +164,12 @@ const AuthDummy = ({ onAfterLogin }) => {
                 <Stack spacing={1}>
                   <HStack>
                     {status && (
-                      <Text fontSize="sm" color="blue.500">
+                      <Text fontSize="sm" color="blue.500" ml="43px" aria-live="polite">
                         {status}
                       </Text>
                     )}
                     <Spacer />
-                    <Button onClick={handleLogout}>ログアウト</Button>
+                    <Button onClick={handleLogout} mr="43px">ログアウト</Button>
                   </HStack>
                 </Stack>
               )}

@@ -28,8 +28,8 @@ const TutorialDrawer = ({ isVisible }) => {
         aria-label={isOpen ? 'チュートリアルを閉じる' : 'チュートリアルを開く'}
         icon={<QuestionOutlineIcon />}
         position="fixed"
-        top={4}
-        right={4}
+        top="37px"
+        right="33px"
         zIndex="popover"
         colorScheme="teal"
         onClick={isOpen ? onClose : onOpen}
