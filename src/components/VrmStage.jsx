@@ -4,13 +4,12 @@ import {
   Button,
   IconButton,
   Image,
-  Select,
   Stack,
   Text,
   useBreakpointValue,
   useColorModeValue
 } from '@chakra-ui/react';
-import { RepeatIcon } from '@chakra-ui/icons';
+import { RepeatIcon, ViewIcon } from '@chakra-ui/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AmbientLight,
@@ -81,8 +80,8 @@ const MODEL_PRESETS = [
     id: 'trial_2',
     label: 'Trial 2 VRM',
     path: `${import.meta.env.BASE_URL}models/trial_2.vrm`,
-    initialCameraPosition: { x: 0, y: 1.5, z: 3.6 },
-    initialTarget: { x: 0, y: 1.45, z: 0 },
+    initialCameraPosition: { x: 0, y: 1.3, z: 2.4 },
+    initialTarget: { x: 0, y: 1.3, z: 0 },
     frontPoseCameraPosition: { x: 0, y: 1.65, z: 2.1 },
     frontPoseTarget: { x: 0, y: 1.55, z: 0 },
     sceneRotationY: Math.PI,
@@ -962,6 +961,11 @@ const VrmStage = () => {
     BACKGROUND_PRESETS[backgroundIndex % BACKGROUND_PRESETS.length];
   const backgroundSrc = useBreakpointValue(selectedBackground.sources);
   const resolvedBackgroundSrc = backgroundSrc || selectedBackground.sources.base;
+  const handleCycleModel = () => {
+    const currentIndex = MODEL_PRESETS.findIndex((preset) => preset.id === selectedModelId);
+    const nextIndex = (currentIndex + 1) % MODEL_PRESETS.length;
+    setSelectedModelId(MODEL_PRESETS[nextIndex].id);
+  };
 
   return (
     <Stack spacing={4} height="100%" role="region" aria-label="VRM ステージ">
@@ -995,6 +999,21 @@ const VrmStage = () => {
         <Badge position="absolute" top={4} right={4} colorScheme="purple">
           FPS: {fps}
         </Badge>
+        <IconButton
+          icon={<ViewIcon />}
+          aria-label={`3D モデルを切り替える（現在: ${selectedModelPreset.label}）`}
+          size="sm"
+          position="absolute"
+          bottom={4}
+          left={4}
+          colorScheme="blackAlpha"
+          variant="solid"
+          bg="blackAlpha.600"
+          _hover={{ bg: 'blackAlpha.700' }}
+          _active={{ bg: 'blackAlpha.800' }}
+          zIndex={3}
+          onClick={handleCycleModel}
+        />
         <IconButton
           icon={<RepeatIcon />}
           aria-label={`背景を切り替える（現在: ${selectedBackground.label}）`}
@@ -1091,19 +1110,6 @@ const VrmStage = () => {
             モデルの読み込みが完了すると操作できます。
           </Text>
         )}
-        <Select
-          size="sm"
-          value={selectedModelId}
-          onChange={(event) => setSelectedModelId(event.target.value)}
-          aria-label="表示する 3D モデルを選択する"
-          mb="4"
-        >
-          {MODEL_PRESETS.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.label}
-            </option>
-          ))}
-        </Select>
         <Button
           size="sm"
           colorScheme="blue"

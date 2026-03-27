@@ -49,11 +49,12 @@ SidebarScenario.jsx
 	•	開始後: 操作ロック（戻れない）。Reset は二重確認ダイアログ（「全履歴が消えます」）の上でのみ実行可。
 
 VrmStage.jsx
-	•	VRM読込：public/models/sample.vrm（`cp LMS_Sample(animation).vrm public/models/sample.vrm` で配置）をデフォルトで利用。
+	•	VRM読込：`public/models/sample.vrm` と `public/models/trial_2.vrm` を利用し、ステージ左下のアイコンボタンで順番に切り替える。
+	•	`trial_2.vrm` の初期カメラ位置は `sample.vrm` と同じ値を使い、正面ポーズ時のみモデル別プリセットで調整する。
 	•	OrbitControls、表情プリセット、擬似リップシンク（スライダで A/I/U/E/O 形状）。
 	•	FPS/状態インジケータ小表示。
 	•	Canvas は完全透明化し、背後に `public/vrm-bg-imgs/` の背景画像（縦/横/教室の3種）を同じ縦幅で重ねる。
-	•	右下に `RepeatIcon` のボタンを重ね、3枚の背景を順番に切り替えられるようにする（バッジ類とはレイヤーをずらす）。
+	•	左下にモデル切替アイコン、右下に `RepeatIcon` の背景切替ボタンを重ね、どちらもバッジ類とはレイヤーをずらす。
 
 ChatPanel.jsx
 	•	履歴（ユーザー/キャラ、時刻、ScorePerUtteranceを行ごとに下添え）。
@@ -137,6 +138,7 @@ ResponsiveOverlays.jsx
 	•	トレーニング終了: 左下固定ボタン押下で確認モーダル。「これで採点してもよろしいですか？」に同意した後に ScoreSummary / ProgressDashboard を表示。
 	•	モバイル固定導線: 左上シナリオ Drawer ボタン、右上チャット Drawer ボタン、右上チュートリアルアイコン、左下終了ボタンが常にアクセス可能。
 	•	3D: Orbit可、擬似リップシンクUIで見た目が変化。
+	•	3Dモデル切替: `sample.vrm` / `trial_2.vrm` をアイコンボタンで切り替えられ、`trial_2.vrm` の初期カメラは `sample.vrm` と同じ位置で始まる。
 	•	チャット: 送信→擬似応答→行ごとの採点UIが出る（ベクトル/チェックリスト/合算）。
 	•	ダッシュボード: 採点サマリーの下に直近セッションのスコア推移モックが表示（trainingEnded 後）。
 	•	A11y: ARIA属性・フォーカストラップ・aria-live等が機能。キーボードのみで主要操作可能。
