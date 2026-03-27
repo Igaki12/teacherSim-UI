@@ -4,6 +4,7 @@ import {
   Button,
   IconButton,
   Image,
+  Select,
   Stack,
   Text,
   useBreakpointValue,
@@ -28,7 +29,6 @@ import { VRMHumanBoneName, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import useAppStore from '../store/useAppStore.js';
 import ChatComposer from './ChatComposer.jsx';
 
-const DEFAULT_MODEL_PATH = `${import.meta.env.BASE_URL}models/sample.vrm`;
 const EXPRESSION_PRESETS = [
   { key: 'happy', label: '喜', description: '喜（ハッピー）' },
   { key: 'angry', label: '怒', description: '怒（アングリー）' },
@@ -65,18 +65,70 @@ const BACKGROUND_PRESETS = [
     }
   }
 ];
+const MODEL_PRESETS = [
+  {
+    id: 'sample',
+    label: 'Sample VRM',
+    path: `${import.meta.env.BASE_URL}models/sample.vrm`,
+    initialCameraPosition: { x: 0, y: 1.3, z: 2.4 },
+    initialTarget: { x: 0, y: 1.3, z: 0 },
+    frontPoseCameraPosition: { x: 0, y: 1.45, z: 1.1 },
+    frontPoseTarget: { x: 0, y: 1.45, z: 0 },
+    sceneRotationY: Math.PI,
+    frontPoseSceneRotationY: 0
+  },
+  {
+    id: 'trial_2',
+    label: 'Trial 2 VRM',
+    path: `${import.meta.env.BASE_URL}models/trial_2.vrm`,
+    initialCameraPosition: { x: 0, y: 1.5, z: 3.6 },
+    initialTarget: { x: 0, y: 1.45, z: 0 },
+    frontPoseCameraPosition: { x: 0, y: 1.65, z: 2.1 },
+    frontPoseTarget: { x: 0, y: 1.55, z: 0 },
+    sceneRotationY: Math.PI,
+    frontPoseSceneRotationY: 0
+  }
+];
+
+const toVector3 = ({ x, y, z }) => new Vector3(x, y, z);
+
+const disposeVrmScene = (vrm) => {
+  if (!vrm?.scene) return;
+  vrm.scene.traverse((object) => {
+    if (!object.isMesh) {
+      return;
+    }
+
+    object.geometry?.dispose?.();
+    const materials = Array.isArray(object.material)
+      ? object.material
+      : [object.material];
+
+    materials.filter(Boolean).forEach((material) => {
+      Object.values(material).forEach((value) => {
+        if (value?.isTexture) {
+          value.dispose?.();
+        }
+      });
+      material.dispose?.();
+    });
+  });
+};
 
 const VrmStage = () => {
   const containerRef = useRef(null);
+  const sceneRef = useRef(null);
   const rendererRef = useRef(null);
   const vrmRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
+  const modelLoadTokenRef = useRef(0);
   const poseAnimationIdRef = useRef(null);
   const [status, setStatus] = useState('モデル読み込み中…');
   const [fps, setFps] = useState(0);
   const [modelReady, setModelReady] = useState(false);
   const [activeExpressionKey, setActiveExpressionKey] = useState(null);
+  const [selectedModelId, setSelectedModelId] = useState(MODEL_PRESETS[0].id);
   const fpsSampleRef = useRef({ last: performance.now(), count: 0 });
   const expressionAnimationIdRef = useRef(null);
   const expressionLoopActiveRef = useRef(false);
@@ -112,10 +164,27 @@ const VrmStage = () => {
   const [assistantBubbleKey, setAssistantBubbleKey] = useState(0);
   const [isAssistantBubbleVisible, setIsAssistantBubbleVisible] = useState(false);
   const [backgroundIndex, setBackgroundIndex] = useState(0);
+  const selectedModelPreset =
+    MODEL_PRESETS.find((preset) => preset.id === selectedModelId) ?? MODEL_PRESETS[0];
   const { started, messages } = useAppStore((state) => ({
     started: state.started,
     messages: state.messages
   }));
+
+  const applyCameraPreset = useCallback((cameraPosition, controlTarget) => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+
+    if (!camera) {
+      return;
+    }
+
+    camera.position.copy(toVector3(cameraPosition));
+    if (controls) {
+      controls.target.copy(toVector3(controlTarget));
+      controls.update();
+    }
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -123,6 +192,7 @@ const VrmStage = () => {
 
     const scene = new Scene();
     scene.background = null;
+    sceneRef.current = scene;
 
     const camera = new PerspectiveCamera(
       35,
@@ -130,7 +200,6 @@ const VrmStage = () => {
       0.1,
       50
     );
-    camera.position.set(0, 1.3, 2.4);
     cameraRef.current = camera;
 
     const renderer = new WebGLRenderer({
@@ -144,8 +213,6 @@ const VrmStage = () => {
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.target = new Vector3(0, 1.3, 0);
-    controls.update();
 
     const ambient = new AmbientLight(0xffffff, 1);
     const directional = new DirectionalLight(0xffffff, 1.2);
@@ -155,35 +222,9 @@ const VrmStage = () => {
 
     rendererRef.current = renderer;
     controlsRef.current = controls;
-
-    const loader = new GLTFLoader();
-    loader.register((parser) => new VRMLoaderPlugin(parser, { autoUpdateHumanBones: true }));
-    loader.load(
-      DEFAULT_MODEL_PATH,
-      async (gltf) => {
-        try {
-          const vrm = gltf.userData.vrm;
-          if (!vrm) {
-            throw new Error('VRM データが見つかりませんでした。');
-          }
-          VRMUtils.removeUnnecessaryJoints(vrm.scene);
-          vrm.scene.rotation.y = Math.PI;
-          scene.add(vrm.scene);
-          vrmRef.current = vrm;
-          setModelReady(true);
-          setStatus('モデル準備完了');
-        } catch (error) {
-          console.error(error);
-          setModelReady(false);
-          setStatus('VRM の読み込みに失敗しました。');
-        }
-      },
-      undefined,
-      (error) => {
-        console.error(error);
-        setModelReady(false);
-        setStatus('VRM の読み込みに失敗しました。');
-      }
+    applyCameraPreset(
+      MODEL_PRESETS[0].initialCameraPosition,
+      MODEL_PRESETS[0].initialTarget
     );
 
     const clock = new Clock();
@@ -227,17 +268,10 @@ const VrmStage = () => {
       window.removeEventListener('resize', handleResize);
       controls.dispose();
       renderer.dispose();
-      scene.traverse((object) => {
-        if (object.isMesh) {
-          object.geometry?.dispose?.();
-          if (object.material?.map) {
-            object.material.map.dispose?.();
-          }
-          object.material?.dispose?.();
-        }
-      });
+      disposeVrmScene(vrmRef.current);
       vrmRef.current = null;
       renderer.domElement.remove();
+      sceneRef.current = null;
       cameraRef.current = null;
       controlsRef.current = null;
       if (poseAnimationIdRef.current !== null) {
@@ -267,7 +301,83 @@ const VrmStage = () => {
       };
       activeExpressionKeyRef.current = null;
     };
-  }, []);
+  }, [applyCameraPreset]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) {
+      return undefined;
+    }
+
+    modelLoadTokenRef.current += 1;
+    const loadToken = modelLoadTokenRef.current;
+    const previousVrm = vrmRef.current;
+
+    interruptAssistantBubble();
+    stopExpressionMotion({ silent: true });
+    if (poseAnimationIdRef.current !== null) {
+      cancelAnimationFrame(poseAnimationIdRef.current);
+      poseAnimationIdRef.current = null;
+    }
+    if (previousVrm?.scene) {
+      scene.remove(previousVrm.scene);
+      disposeVrmScene(previousVrm);
+      vrmRef.current = null;
+    }
+
+    setModelReady(false);
+    setStatus(`${selectedModelPreset.label} を読み込み中…`);
+    setActiveExpressionKey(null);
+    activeExpressionKeyRef.current = null;
+    lastAssistantMessageIdRef.current = null;
+
+    applyCameraPreset(
+      selectedModelPreset.initialCameraPosition,
+      selectedModelPreset.initialTarget
+    );
+
+    const loader = new GLTFLoader();
+    loader.register((parser) => new VRMLoaderPlugin(parser, { autoUpdateHumanBones: true }));
+
+    loader.load(
+      selectedModelPreset.path,
+      async (gltf) => {
+        if (loadToken !== modelLoadTokenRef.current) {
+          return;
+        }
+
+        try {
+          const vrm = gltf.userData.vrm;
+          if (!vrm) {
+            throw new Error('VRM データが見つかりませんでした。');
+          }
+          VRMUtils.removeUnnecessaryJoints(vrm.scene);
+          vrm.scene.rotation.y = selectedModelPreset.sceneRotationY;
+          scene.add(vrm.scene);
+          vrmRef.current = vrm;
+          setModelReady(true);
+          setStatus(`${selectedModelPreset.label} の準備が完了しました`);
+        } catch (error) {
+          console.error(error);
+          setModelReady(false);
+          setStatus('VRM の読み込みに失敗しました。');
+        }
+      },
+      undefined,
+      (error) => {
+        if (loadToken !== modelLoadTokenRef.current) {
+          return;
+        }
+        console.error(error);
+        setModelReady(false);
+        setStatus('VRM の読み込みに失敗しました。');
+      }
+    );
+
+    return () => {
+      modelLoadTokenRef.current += 1;
+    };
+  }, [applyCameraPreset, selectedModelId]);
 
   useEffect(() => {
     activeExpressionKeyRef.current = activeExpressionKey;
@@ -712,7 +822,7 @@ const VrmStage = () => {
     const controls = controlsRef.current;
     const camera = cameraRef.current;
 
-    vrm.scene.rotation.y = 0;
+    vrm.scene.rotation.y = selectedModelPreset.frontPoseSceneRotationY;
 
     if (humanoid) {
       const setBoneEuler = (boneName, { x = 0, y = 0, z = 0 }) => {
@@ -751,8 +861,8 @@ const VrmStage = () => {
       humanoid.update();
     }
 
-    const targetCameraPos = new Vector3(0, 1.45, 1.1);
-    const targetControlTarget = new Vector3(0, 1.45, 0);
+    const targetCameraPos = toVector3(selectedModelPreset.frontPoseCameraPosition);
+    const targetControlTarget = toVector3(selectedModelPreset.frontPoseTarget);
     const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
     if (camera) {
@@ -803,7 +913,12 @@ const VrmStage = () => {
       setStatus('正面ポジションを適用しました');
       resumeExpressionIfSelected();
     }
-  }, [interruptAssistantBubble, resumeExpressionIfSelected, stopExpressionMotion]);
+  }, [
+    interruptAssistantBubble,
+    resumeExpressionIfSelected,
+    selectedModelPreset,
+    stopExpressionMotion
+  ]);
 
   useEffect(() => {
     if (started && modelReady) {
@@ -976,6 +1091,19 @@ const VrmStage = () => {
             モデルの読み込みが完了すると操作できます。
           </Text>
         )}
+        <Select
+          size="sm"
+          value={selectedModelId}
+          onChange={(event) => setSelectedModelId(event.target.value)}
+          aria-label="表示する 3D モデルを選択する"
+          mb="4"
+        >
+          {MODEL_PRESETS.map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {preset.label}
+            </option>
+          ))}
+        </Select>
         <Button
           size="sm"
           colorScheme="blue"
