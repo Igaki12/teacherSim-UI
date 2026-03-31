@@ -86,6 +86,17 @@ const MODEL_PRESETS = [
     frontPoseTarget: { x: 0, y: 1.55, z: 0 },
     sceneRotationY: Math.PI,
     frontPoseSceneRotationY: 0
+  },
+  {
+    id: 'young_counsil',
+    label: 'Young Counsil VRM',
+    path: `${import.meta.env.BASE_URL}models/young_counsil.vrm`,
+    initialCameraPosition: { x: 0, y: 1.3, z: 2.4 },
+    initialTarget: { x: 0, y: 1.3, z: 0 },
+    frontPoseCameraPosition: { x: 0, y: 1.65, z: 2.1 },
+    frontPoseTarget: { x: 0, y: 1.55, z: 0 },
+    sceneRotationY: Math.PI,
+    frontPoseSceneRotationY: 0
   }
 ];
 
